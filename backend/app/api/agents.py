@@ -5,7 +5,7 @@ Agent API endpoints: CRUD operations for AI agents.
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -43,6 +43,11 @@ async def create_agent(
     db: AsyncSession = Depends(get_db),
 ):
     """Register a new AI agent. Developer-only."""
+    if current_user.role != "developer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only developer accounts can register agents",
+        )
     return await agent_service.create_agent(db, current_user.id, data)
 
 

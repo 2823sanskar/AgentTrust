@@ -15,12 +15,14 @@ const providerColors: Record<string, string> = {
   groq: "from-orange-500 to-red-500",
   openai: "from-emerald-500 to-teal-500",
   gemini: "from-blue-500 to-purple-500",
+  openrouter: "from-violet-500 to-fuchsia-500",
 };
 
 const providerLabels: Record<string, string> = {
   groq: "Groq",
   openai: "OpenAI",
   gemini: "Gemini",
+  openrouter: "OpenRouter",
 };
 
 export function AgentCard({ agent, index = 0 }: AgentCardProps) {

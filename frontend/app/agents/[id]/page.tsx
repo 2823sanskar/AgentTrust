@@ -63,6 +63,7 @@ export default function AgentDetailPage() {
     groq: "from-orange-500 to-red-500",
     openai: "from-emerald-500 to-teal-500",
     gemini: "from-blue-500 to-purple-500",
+    openrouter: "from-violet-500 to-fuchsia-500",
   };
 
   return (

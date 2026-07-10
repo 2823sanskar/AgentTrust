@@ -4,6 +4,7 @@ Uses a self-payment transaction with a HashMemo containing the SHA-256 digest.
 """
 
 import logging
+import base64
 from typing import Optional
 
 from stellar_sdk import (
@@ -90,7 +91,9 @@ async def anchor_hash_on_stellar(execution_hash_bytes: bytes) -> Optional[str]:
         return None
 
 
-async def verify_stellar_transaction(tx_hash: str) -> dict:
+async def verify_stellar_transaction(
+    tx_hash: str, expected_hash_bytes: bytes | None = None
+) -> dict:
     """
     Verify a transaction exists on Stellar Testnet and retrieve its memo.
     
@@ -101,10 +104,18 @@ async def verify_stellar_transaction(tx_hash: str) -> dict:
         server = _get_server()
         tx = server.transactions().transaction(tx_hash).call()
         
+        memo = tx.get("memo", "")
+        memo_type = tx.get("memo_type", "")
+        memo_matches = None
+        if expected_hash_bytes is not None:
+            expected_memo = base64.b64encode(expected_hash_bytes).decode("ascii")
+            memo_matches = memo_type == "hash" and memo == expected_memo
+
         return {
             "exists": True,
-            "memo_type": tx.get("memo_type", ""),
-            "memo": tx.get("memo", ""),
+            "memo_type": memo_type,
+            "memo": memo,
+            "memo_matches": memo_matches,
             "created_at": tx.get("created_at", ""),
             "source_account": tx.get("source_account", ""),
         }

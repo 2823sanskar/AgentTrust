@@ -39,6 +39,8 @@ async def execute_ai_provider(
         return await _execute_openai(model, system_prompt, task)
     elif provider == "gemini":
         return await _execute_gemini(model, system_prompt, task)
+    elif provider == "openrouter":
+        return await _execute_openrouter(model, system_prompt, task)
     else:
         raise ValueError(f"Unsupported AI provider: {provider}")
 
@@ -70,6 +72,32 @@ async def _execute_openai(model: str, system_prompt: str, task: str) -> str:
         raise ValueError("OPENAI_API_KEY is not configured")
 
     client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": task},
+        ],
+        temperature=0.7,
+        max_tokens=4096,
+    )
+
+    return response.choices[0].message.content or ""
+
+
+async def _execute_openrouter(model: str, system_prompt: str, task: str) -> str:
+    if not settings.OPENROUTER_API_KEY:
+        raise ValueError("OPENROUTER_API_KEY is not configured")
+
+    client = AsyncOpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=settings.OPENROUTER_API_KEY,
+        default_headers={
+            "HTTP-Referer": "http://localhost:3000",
+            "X-OpenRouter-Title": settings.APP_NAME,
+        },
+    )
 
     response = await client.chat.completions.create(
         model=model,

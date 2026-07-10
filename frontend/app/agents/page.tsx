@@ -61,7 +61,7 @@ export default function AgentsPage() {
             />
           </div>
           <div className="flex gap-2">
-            {["", "groq", "openai", "gemini"].map((p) => (
+            {["", "groq", "openai", "gemini", "openrouter"].map((p) => (
               <button
                 key={p}
                 onClick={() => { setProvider(p); setPage(1); }}

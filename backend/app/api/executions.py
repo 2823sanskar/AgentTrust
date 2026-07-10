@@ -5,7 +5,7 @@ Execution API endpoints: execute agents, list/view runs.
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -13,12 +13,15 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.run import ExecuteRequest, RunResponse, RunListResponse
 from app.services import execution_service
+from app.rate_limit import limiter, execution_rate_limit_key
 
 router = APIRouter(prefix="/api", tags=["Executions"])
 
 
 @router.post("/execute", response_model=RunResponse, status_code=201)
+@limiter.limit("10/minute", key_func=execution_rate_limit_key)
 async def execute(
+    request: Request,
     data: ExecuteRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

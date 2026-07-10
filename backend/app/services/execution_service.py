@@ -183,16 +183,24 @@ async def verify_run(db: AsyncSession, run_id: uuid.UUID) -> VerificationRespons
     # Verify Stellar transaction
     stellar_verified = False
     if run.stellar_transaction:
-        stellar_info = await verify_stellar_transaction(run.stellar_transaction)
-        stellar_verified = stellar_info.get("exists", False)
+        stellar_info = await verify_stellar_transaction(
+            run.stellar_transaction,
+            expected_hash_bytes=hash_to_bytes(computed_hash),
+        )
+        stellar_verified = bool(
+            stellar_info.get("exists", False)
+            and stellar_info.get("memo_matches", False)
+        )
 
     # Determine verification status
-    if hashes_match and stellar_verified:
+    if not hashes_match:
+        verification_status = "tampered"
+    elif stellar_verified:
         verification_status = "verified"
-    elif hashes_match and not run.stellar_transaction:
+    elif not run.stellar_transaction:
         verification_status = "unanchored"
     else:
-        verification_status = "tampered"
+        verification_status = "unanchored"
 
     return VerificationResponse(
         run_id=run.id,

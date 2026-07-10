@@ -19,7 +19,7 @@ export interface Agent {
   developer_id: string;
   name: string;
   description: string | null;
-  provider: "groq" | "openai" | "gemini";
+  provider: "groq" | "openai" | "gemini" | "openrouter";
   model: string;
   system_prompt: string;
   category: string | null;
@@ -41,7 +41,7 @@ export interface AgentListResponse {
 export interface AgentCreate {
   name: string;
   description?: string;
-  provider: "groq" | "openai" | "gemini";
+  provider: "groq" | "openai" | "gemini" | "openrouter";
   model: string;
   system_prompt: string;
   category?: string;
