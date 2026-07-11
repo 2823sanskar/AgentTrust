@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getErrorMessage } from "@/lib/api";
 import { motion } from "framer-motion";
@@ -10,7 +9,6 @@ import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight, User, Code2, Users } from 
 
 export default function RegisterPage() {
   const { register } = useAuth();
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,7 +34,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register(name, email, password, role);
-      router.push("/dashboard");
+      window.location.assign("/dashboard");
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Registration failed"));
     } finally {

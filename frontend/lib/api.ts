@@ -26,10 +26,15 @@ class ApiClient {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch {
+      throw new Error("Cannot connect to AgentTrust. Please make sure the backend is running.");
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Request failed" }));
