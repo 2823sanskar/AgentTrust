@@ -55,7 +55,7 @@ export default function ExecuteAgentPage() {
     <div className="min-h-screen bg-[#060612]">
       <Navbar />
       <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
           {/* Agent mini card */}
           {agent && (
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 mb-6 flex items-center gap-4">
@@ -125,7 +125,7 @@ export default function ExecuteAgentPage() {
               {/* Result */}
               {result && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={false}
                   animate={{ opacity: 1, y: 0 }}
                   className="mt-8 space-y-4"
                 >

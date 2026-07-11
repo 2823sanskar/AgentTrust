@@ -66,7 +66,7 @@ export default function RegisterAgentPage() {
     <div className="min-h-screen bg-[#060612]">
       <Navbar />
       <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl font-bold text-white mb-2">Register AI Agent</h1>
           <p className="text-gray-500 mb-8">Configure your agent and start building trust</p>
 

@@ -92,7 +92,7 @@ export default function VerifyPage() {
     <div className="min-h-screen bg-[#060612]">
       <Navbar />
       <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-white mb-2">Execution Verification</h1>
             <p className="text-sm text-gray-500 font-mono">Run ID: {runId}</p>

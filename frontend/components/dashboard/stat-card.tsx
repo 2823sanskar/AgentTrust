@@ -43,7 +43,7 @@ export function StatCard({ label, value, icon: Icon, trend, color = "cyan" }: St
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={false}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4 }}
       className={`relative overflow-hidden rounded-xl border ${c.border} bg-gradient-to-br ${c.bg} p-6 shadow-lg ${c.glow}`}

@@ -71,7 +71,7 @@ export default function AgentDetailPage() {
     <div className="min-h-screen bg-[#060612]">
       <Navbar />
       <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
           {/* Agent Header */}
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 mb-6">
             <div className="flex flex-col md:flex-row md:items-start gap-6">
