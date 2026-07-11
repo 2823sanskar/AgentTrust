@@ -36,7 +36,7 @@ const features = [
   {
     icon: Zap,
     title: "Multi-Provider Support",
-    description: "Register agents powered by Groq, OpenAI, or Gemini. Execute and compare across providers.",
+    description: "Register agents powered by free OpenRouter models and compare their verified executions.",
     color: "from-amber-500 to-orange-500",
   },
 ];

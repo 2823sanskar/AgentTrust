@@ -9,10 +9,7 @@ import { motion } from "framer-motion";
 import { Bot, Zap, ArrowRight, AlertCircle } from "lucide-react";
 
 const providers = [
-  { value: "groq", label: "Groq", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"] },
-  { value: "openai", label: "OpenAI", models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"] },
-  { value: "gemini", label: "Gemini", models: ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"] },
-  { value: "openrouter", label: "OpenRouter", models: ["openrouter/free"] },
+  { value: "openrouter", label: "OpenRouter (Free)", models: ["openrouter/free"] },
   { value: "browser", label: "Browser Agent", models: ["browser-demo"] },
 ];
 
@@ -21,8 +18,8 @@ export default function RegisterAgentPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [provider, setProvider] = useState("groq");
-  const [model, setModel] = useState("llama-3.3-70b-versatile");
+  const [provider, setProvider] = useState("openrouter");
+  const [model, setModel] = useState("openrouter/free");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [category, setCategory] = useState("");
   const [error, setError] = useState("");
@@ -38,7 +35,7 @@ export default function RegisterAgentPage() {
       const agent = await api.createAgent({
         name,
         description: description || undefined,
-        provider: provider as "groq" | "openai" | "gemini" | "openrouter" | "browser",
+        provider: provider as "openrouter" | "browser",
         model,
         system_prompt: systemPrompt,
         category: category || undefined,

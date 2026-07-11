@@ -22,10 +22,7 @@ class Settings(BaseSettings):
     STELLAR_NETWORK: str = "testnet"
     STELLAR_HORIZON_URL: str = "https://horizon-testnet.stellar.org"
 
-    # AI Providers
-    GROQ_API_KEY: str = ""
-    OPENAI_API_KEY: str = ""
-    GEMINI_API_KEY: str = ""
+    # AI Provider
     OPENROUTER_API_KEY: str = ""
 
     # App
