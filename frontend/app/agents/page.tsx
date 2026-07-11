@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Agent } from "@/types";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { AgentCard } from "@/components/agents/agent-card";
 import { motion } from "framer-motion";
-import { Search, Filter, Bot } from "lucide-react";
+import { Search, Bot } from "lucide-react";
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -18,7 +18,7 @@ export default function AgentsPage() {
   const [page, setPage] = useState(1);
   const pageSize = 12;
 
-  const loadAgents = async () => {
+  const loadAgents = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.getAgents({ search: search || undefined, provider: provider || undefined, page, page_size: pageSize });
@@ -29,12 +29,12 @@ export default function AgentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, provider, search]);
 
   useEffect(() => {
     const timeout = setTimeout(loadAgents, 300);
     return () => clearTimeout(timeout);
-  }, [search, provider, page]);
+  }, [loadAgents]);
 
   const totalPages = Math.ceil(total / pageSize);
 

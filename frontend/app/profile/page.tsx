@@ -16,7 +16,6 @@ export default function ProfilePage() {
   const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push("/login");
@@ -34,8 +33,6 @@ export default function ProfilePage() {
         setRuns(runsRes.runs);
       } catch (err) {
         console.error(err);
-      } finally {
-        setLoading(false);
       }
     };
     load();

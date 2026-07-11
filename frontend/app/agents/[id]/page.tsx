@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { Agent, TrustScore, Run } from "@/types";
@@ -9,7 +9,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { TrustBadge } from "@/components/shared/trust-badge";
 import { motion } from "framer-motion";
 import {
-  Bot, Zap, CheckCircle2, Clock, Hash, ArrowRight,
+  Bot, Zap, Clock, Hash, ArrowRight,
   User, Calendar, BarChart3, Shield, Activity
 } from "lucide-react";
 

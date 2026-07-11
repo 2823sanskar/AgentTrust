@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    loadUser();
+    void Promise.resolve().then(loadUser);
   }, [loadUser]);
 
   const handleAuthResponse = (response: TokenResponse) => {

@@ -8,8 +8,6 @@ import {
   Shield,
   Menu,
   X,
-  LayoutDashboard,
-  Bot,
   LogOut,
   User,
   LogIn,

@@ -8,8 +8,8 @@ import { Run } from "@/types";
 import { Navbar } from "@/components/layout/navbar";
 import { motion } from "framer-motion";
 import {
-  FileText, Clock, CheckCircle2, XCircle, Hash,
-  Shield, Bot, User, Calendar, ExternalLink, Copy, Check
+  FileText, Clock, CheckCircle2, XCircle,
+  Shield, Bot, Calendar, ExternalLink, Copy, Check
 } from "lucide-react";
 
 export default function RunDetailPage() {

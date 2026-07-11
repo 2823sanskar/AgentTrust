@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { Navbar } from "@/components/layout/navbar";
 import { motion } from "framer-motion";
 import { Bot, Zap, ArrowRight, AlertCircle } from "lucide-react";
@@ -43,8 +43,8 @@ export default function RegisterAgentPage() {
         category: category || undefined,
       });
       router.push(`/agents/${agent.id}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to register agent");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to register agent"));
     } finally {
       setLoading(false);
     }

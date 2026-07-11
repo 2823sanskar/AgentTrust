@@ -25,7 +25,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
-  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalAgents: 0,
     totalRuns: 0,
@@ -65,8 +64,6 @@ export default function DashboardPage() {
         });
       } catch (err) {
         console.error("Dashboard load error:", err);
-      } finally {
-        setLoading(false);
       }
     };
     loadData();

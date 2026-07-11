@@ -10,10 +10,8 @@ import {
   BarChart3,
   Zap,
   ArrowRight,
-  CheckCircle2,
   Link2,
   Bot,
-  FileSearch,
 } from "lucide-react";
 
 const features = [

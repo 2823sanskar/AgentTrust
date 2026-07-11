@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Agent, Run } from "@/types";
 import { Navbar } from "@/components/layout/navbar";
@@ -36,8 +36,8 @@ export default function ExecuteAgentPage() {
     try {
       const run = await api.execute({ agent_id: id, task });
       setResult(run);
-    } catch (err: any) {
-      setError(err.message || "Execution failed");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Execution failed"));
     } finally {
       setExecuting(false);
     }

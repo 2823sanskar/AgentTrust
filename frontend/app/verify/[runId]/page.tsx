@@ -7,8 +7,8 @@ import { VerificationResult } from "@/types";
 import { Navbar } from "@/components/layout/navbar";
 import { motion } from "framer-motion";
 import {
-  Shield, ShieldCheck, ShieldAlert, ShieldX,
-  Hash, ExternalLink, CheckCircle2, XCircle, Clock,
+  ShieldCheck, ShieldAlert, ShieldX,
+  ExternalLink, CheckCircle2, XCircle,
   Copy, Check
 } from "lucide-react";
 
