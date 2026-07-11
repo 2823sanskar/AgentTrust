@@ -18,6 +18,7 @@ class RunResponse(BaseModel):
     user_id: uuid.UUID
     task: str
     response: Optional[str]
+    action_log: Optional[list[dict]] = None
     status: str
     execution_time: Optional[float]
     created_at: datetime

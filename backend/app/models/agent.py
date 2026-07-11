@@ -21,7 +21,7 @@ class Agent(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    provider: Mapped[str] = mapped_column(String(50), nullable=False)  # groq, openai, gemini, openrouter
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)  # groq, openai, gemini, openrouter, browser
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)

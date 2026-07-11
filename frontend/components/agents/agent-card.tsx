@@ -16,6 +16,7 @@ const providerColors: Record<string, string> = {
   openai: "from-emerald-500 to-teal-500",
   gemini: "from-blue-500 to-purple-500",
   openrouter: "from-violet-500 to-fuchsia-500",
+  browser: "from-cyan-500 to-sky-500",
 };
 
 const providerLabels: Record<string, string> = {
@@ -23,6 +24,7 @@ const providerLabels: Record<string, string> = {
   openai: "OpenAI",
   gemini: "Gemini",
   openrouter: "OpenRouter",
+  browser: "Browser",
 };
 
 export function AgentCard({ agent, index = 0 }: AgentCardProps) {

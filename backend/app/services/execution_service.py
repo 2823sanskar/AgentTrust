@@ -16,6 +16,7 @@ from app.models.run import Run
 from app.models.agent import Agent
 from app.schemas.run import RunResponse, RunListResponse, VerificationResponse
 from app.services.ai_provider import execute_ai_provider
+from app.services.browser_agent import execute_browser_agent
 from app.services.trust_service import recalculate_trust_score
 from app.blockchain.stellar import anchor_hash_on_stellar, verify_stellar_transaction
 from app.utils.hashing import compute_execution_hash, hash_to_bytes
@@ -55,16 +56,29 @@ async def execute_agent(
     # 3-5. Execute AI provider and measure time
     start_time = time.time()
     try:
-        response_text = await execute_ai_provider(
-            provider=agent.provider,
-            model=agent.model,
-            system_prompt=agent.system_prompt,
-            task=task,
-        )
+        action_log = None
+        if agent.provider == "browser":
+            response_text, action_log = await execute_browser_agent(task)
+        else:
+            response_text = await execute_ai_provider(
+                provider=agent.provider,
+                model=agent.model,
+                system_prompt=agent.system_prompt,
+                task=task,
+            )
         execution_status = "success"
     except Exception as e:
         logger.error(f"AI execution failed for run {run_id}: {e}")
         response_text = f"Execution error: {str(e)}"
+        action_log = [
+            {
+                "step": 1,
+                "action": "execution_failed",
+                "target": agent.provider,
+                "status": "failure",
+                "note": str(e),
+            }
+        ]
         execution_status = "failure"
 
     execution_time = round(time.time() - start_time, 4)
@@ -79,6 +93,7 @@ async def execute_agent(
         status=execution_status,
         execution_time=execution_time,
         created_at=created_at,
+        action_log=action_log,
     )
 
     # 8. Submit hash to Stellar Testnet
@@ -96,6 +111,7 @@ async def execute_agent(
         user_id=user_id,
         task=task,
         response=response_text,
+        action_log=action_log,
         status=execution_status,
         execution_time=execution_time,
         created_at=created_at,
@@ -173,6 +189,7 @@ async def verify_run(db: AsyncSession, run_id: uuid.UUID) -> VerificationRespons
         user_id=run.user_id,
         task=run.task,
         response=run.response,
+        action_log=run.action_log,
         status=run.status,
         execution_time=run.execution_time,
         created_at=run.created_at,
@@ -221,6 +238,7 @@ def _run_to_response(run: Run) -> RunResponse:
         user_id=run.user_id,
         task=run.task,
         response=run.response,
+        action_log=run.action_log,
         status=run.status,
         execution_time=run.execution_time,
         created_at=run.created_at,

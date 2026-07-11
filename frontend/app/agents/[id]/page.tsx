@@ -64,6 +64,7 @@ export default function AgentDetailPage() {
     openai: "from-emerald-500 to-teal-500",
     gemini: "from-blue-500 to-purple-500",
     openrouter: "from-violet-500 to-fuchsia-500",
+    browser: "from-cyan-500 to-sky-500",
   };
 
   return (

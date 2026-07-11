@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Text, Float, DateTime, ForeignKey, func
+from sqlalchemy import JSON, String, Text, Float, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,7 @@ class Run(Base):
     )
     task: Mapped[str] = mapped_column(Text, nullable=False)
     response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    action_log: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     execution_time: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

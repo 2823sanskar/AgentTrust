@@ -160,6 +160,29 @@ export default function ExecuteAgentPage() {
                     </div>
                   </div>
 
+                  {/* Action Log */}
+                  {result.action_log && result.action_log.length > 0 && (
+                    <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
+                      <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
+                        <Bot className="h-4 w-4 text-cyan-400" />
+                        <span className="text-sm font-medium text-gray-300">Recorded Actions</span>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        {result.action_log.map((item) => (
+                          <div key={item.step} className="flex gap-3 rounded-lg bg-white/[0.02] p-3">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/10 text-xs text-cyan-400">
+                              {item.step}
+                            </span>
+                            <div>
+                              <p className="text-sm font-medium text-white">{item.action}</p>
+                              <p className="text-xs text-gray-500">{item.note}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Response */}
                   <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
                     <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">

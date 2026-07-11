@@ -29,6 +29,7 @@ def compute_execution_hash(
     status: str,
     execution_time: Optional[float],
     created_at: datetime,
+    action_log: Optional[list[dict]] = None,
 ) -> str:
     """
     Compute a SHA-256 hash of an execution record.
@@ -49,6 +50,8 @@ def compute_execution_hash(
         "execution_time": execution_time,
         "created_at": created_at,
     }
+    if action_log is not None:
+        record["action_log"] = action_log
 
     # Deterministic JSON serialization (sorted keys, no whitespace)
     record_json = json.dumps(record, sort_keys=True, cls=UUIDEncoder)

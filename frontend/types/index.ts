@@ -19,7 +19,7 @@ export interface Agent {
   developer_id: string;
   name: string;
   description: string | null;
-  provider: "groq" | "openai" | "gemini" | "openrouter";
+  provider: "groq" | "openai" | "gemini" | "openrouter" | "browser";
   model: string;
   system_prompt: string;
   category: string | null;
@@ -41,7 +41,7 @@ export interface AgentListResponse {
 export interface AgentCreate {
   name: string;
   description?: string;
-  provider: "groq" | "openai" | "gemini" | "openrouter";
+  provider: "groq" | "openai" | "gemini" | "openrouter" | "browser";
   model: string;
   system_prompt: string;
   category?: string;
@@ -53,6 +53,7 @@ export interface Run {
   user_id: string;
   task: string;
   response: string | null;
+  action_log: ActionLogEntry[] | null;
   status: "success" | "failure" | "pending";
   execution_time: number | null;
   created_at: string;
@@ -60,6 +61,14 @@ export interface Run {
   stellar_transaction: string | null;
   agent_name: string | null;
   user_name: string | null;
+}
+
+export interface ActionLogEntry {
+  step: number;
+  action: string;
+  target: string;
+  status: "success" | "failure" | "pending";
+  note: string;
 }
 
 export interface RunListResponse {

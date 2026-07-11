@@ -13,6 +13,7 @@ const providers = [
   { value: "openai", label: "OpenAI", models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"] },
   { value: "gemini", label: "Gemini", models: ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"] },
   { value: "openrouter", label: "OpenRouter", models: ["openrouter/free"] },
+  { value: "browser", label: "Browser Agent", models: ["browser-demo"] },
 ];
 
 export default function RegisterAgentPage() {
@@ -37,7 +38,7 @@ export default function RegisterAgentPage() {
       const agent = await api.createAgent({
         name,
         description: description || undefined,
-        provider: provider as "groq" | "openai" | "gemini" | "openrouter",
+        provider: provider as "groq" | "openai" | "gemini" | "openrouter" | "browser",
         model,
         system_prompt: systemPrompt,
         category: category || undefined,
@@ -128,7 +129,7 @@ export default function RegisterAgentPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Provider *</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                   {providers.map((p) => (
                     <button
                       key={p.value}
