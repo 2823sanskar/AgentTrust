@@ -16,7 +16,7 @@ from app.models.run import Run
 from app.models.agent import Agent
 from app.schemas.run import RunResponse, RunListResponse, VerificationResponse
 from app.services.ai_provider import execute_ai_provider
-from app.services.browser_agent import execute_browser_agent
+from app.services.browser_agent import BrowserAgentExecutionError, execute_browser_agent
 from app.services.trust_service import recalculate_trust_score
 from app.blockchain.stellar import anchor_hash_on_stellar, verify_stellar_transaction
 from app.utils.hashing import compute_execution_hash, hash_to_bytes
@@ -70,15 +70,18 @@ async def execute_agent(
     except Exception as e:
         logger.error(f"AI execution failed for run {run_id}: {e}")
         response_text = f"Execution error: {str(e)}"
-        action_log = [
-            {
-                "step": 1,
-                "action": "execution_failed",
-                "target": agent.provider,
-                "status": "failure",
-                "note": str(e),
-            }
-        ]
+        if isinstance(e, BrowserAgentExecutionError):
+            action_log = e.action_log
+        else:
+            action_log = [
+                {
+                    "step": 1,
+                    "action": "Execution failed",
+                    "target": agent.provider,
+                    "status": "failure",
+                    "note": str(e),
+                }
+            ]
         execution_status = "failure"
 
     execution_time = round(time.time() - start_time, 4)

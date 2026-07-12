@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import {
   ShieldCheck, ShieldAlert, ShieldX,
   ExternalLink, CheckCircle2, XCircle,
-  Copy, Check
+  Copy, Check, Bot
 } from "lucide-react";
 
 export default function VerifyPage() {
@@ -208,6 +208,45 @@ export default function VerifyPage() {
                   <p className="text-white">{new Date(result.run_details.created_at).toLocaleString()}</p>
                 </div>
               </div>
+            </div>
+
+            {/* Browser Steps */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
+                <Bot className="h-4 w-4 text-cyan-400" />
+                <span className="text-sm font-medium text-gray-300">Recorded Browser Steps</span>
+              </div>
+              {result.run_details.action_log && result.run_details.action_log.length > 0 ? (
+                <div className="p-5 space-y-3">
+                  {result.run_details.action_log.map((item) => (
+                    <div key={item.step} className="flex gap-3 rounded-lg bg-white/[0.02] p-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/10 text-xs text-cyan-400">
+                        {item.step}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium text-white">{item.action}</p>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                            item.status === "success"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : item.status === "failure"
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-amber-500/10 text-amber-400"
+                          }`}>
+                            {item.status}
+                          </span>
+                        </div>
+                        <p className="break-all text-xs text-gray-400">{item.target}</p>
+                        <p className="text-xs text-gray-500">{item.note}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-5">
+                  <p className="text-sm text-gray-500">No browser steps were recorded for this execution.</p>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
