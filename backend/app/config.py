@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # AI Provider
     OPENROUTER_API_KEY: str = ""
 
+    # Browser Agent
+    BROWSER_AGENT_HEADLESS: bool = True
+    BROWSER_AGENT_TIMEOUT_MS: int = 15000
+
     # App
     APP_NAME: str = "AgentTrust"
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
