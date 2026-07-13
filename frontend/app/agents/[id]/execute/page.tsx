@@ -168,8 +168,8 @@ export default function ExecuteAgentPage() {
                         <span className="text-sm font-medium text-gray-300">Recorded Actions</span>
                       </div>
                       <div className="p-5 space-y-3">
-                        {result.action_log.map((item) => (
-                          <div key={item.step} className="flex gap-3 rounded-lg bg-white/[0.02] p-3">
+                        {result.action_log.map((item, index) => (
+                          <div key={`${item.step}-${item.action}-${index}`} className="flex gap-3 rounded-lg bg-white/[0.02] p-3">
                             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/10 text-xs text-cyan-400">
                               {item.step}
                             </span>

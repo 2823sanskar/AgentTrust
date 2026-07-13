@@ -13,7 +13,7 @@ from stellar_sdk import (
     TransactionBuilder,
     Network,
     Asset,
-    Memo,
+    HashMemo,
 )
 from stellar_sdk.exceptions import (
     BadRequestError,
@@ -67,7 +67,7 @@ async def anchor_hash_on_stellar(execution_hash_bytes: bytes) -> Optional[str]:
                 asset=Asset.native(),
                 amount="0.0000001",  # Minimum amount
             )
-            .add_memo(Memo.hash(execution_hash_bytes))
+            .add_memo(HashMemo(execution_hash_bytes))
             .set_timeout(30)
             .build()
         )

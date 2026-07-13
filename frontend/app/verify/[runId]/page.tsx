@@ -9,8 +9,10 @@ import { motion } from "framer-motion";
 import {
   ShieldCheck, ShieldAlert, ShieldX,
   ExternalLink, CheckCircle2, XCircle,
-  Copy, Check
+  Copy, Check, Link2
 } from "lucide-react";
+
+const stellarTxUrl = (tx: string) => `https://stellar.expert/explorer/testnet/tx/${tx}`;
 
 export default function VerifyPage() {
   const params = useParams();
@@ -87,6 +89,7 @@ export default function VerifyPage() {
 
   const config = statusConfig[result.verification_status];
   const StatusIcon = config.icon;
+  const stellarUrl = result.stellar_transaction ? stellarTxUrl(result.stellar_transaction) : null;
 
   return (
     <div className="min-h-screen bg-[#060612]">
@@ -148,37 +151,53 @@ export default function VerifyPage() {
             </div>
 
             {/* Blockchain Proof */}
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
-              <div className="px-5 py-3 border-b border-white/5">
-                <span className="text-sm font-medium text-gray-300">Blockchain Proof</span>
+            <div className={`rounded-xl border overflow-hidden ${
+              result.stellar_verified
+                ? "border-emerald-500/20 bg-emerald-500/[0.04]"
+                : "border-amber-500/20 bg-amber-500/[0.04]"
+            }`}>
+              <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-gray-300">Stellar Testnet Proof</span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs ${
+                  result.stellar_verified
+                    ? "bg-emerald-500/10 text-emerald-300"
+                    : "bg-amber-500/10 text-amber-300"
+                }`}>
+                  {result.stellar_verified ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+                  {result.stellar_verified ? "Anchored on-chain" : "No verified anchor"}
+                </span>
               </div>
               <div className="p-5 space-y-3">
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Stellar Transaction</p>
+                  <p className="text-xs text-gray-500 mb-1">Blockchain Transaction ID</p>
                   {result.stellar_transaction ? (
-                    <div className="flex items-center gap-2">
-                      <code className="text-xs text-cyan-400 font-mono">{result.stellar_transaction}</code>
+                    <div className="space-y-3">
+                      <code className="block rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-cyan-300 font-mono break-all">
+                        {result.stellar_transaction}
+                      </code>
                       <a
-                        href={`https://stellar.expert/explorer/testnet/tx/${result.stellar_transaction}`}
+                        href={stellarUrl ?? "#"}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="shrink-0 p-1 text-gray-600 hover:text-cyan-400"
+                        className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/20 px-3 py-2 text-sm text-cyan-300 hover:bg-cyan-500/10 transition-all"
                       >
-                        <ExternalLink className="h-3 w-3" />
+                        <Link2 className="h-4 w-4" />
+                        Open proof on Stellar Expert
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-600">No on-chain proof</p>
+                    <p className="text-sm text-amber-300">No Stellar transaction was stored for this run.</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 pt-2 border-t border-white/5">
                   {result.stellar_verified ? (
                     <span className="flex items-center gap-1 text-sm text-emerald-400">
-                      <CheckCircle2 className="h-4 w-4" /> Transaction Verified on Stellar
+                      <CheckCircle2 className="h-4 w-4" /> Stellar transaction exists and its memo matches this run hash
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-sm text-gray-600">
-                      <XCircle className="h-4 w-4" /> Not verified on-chain
+                    <span className="flex items-center gap-1 text-sm text-amber-300">
+                      <XCircle className="h-4 w-4" /> This run is not verified on Stellar yet
                     </span>
                   )}
                 </div>

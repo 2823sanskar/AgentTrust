@@ -9,8 +9,10 @@ import { Navbar } from "@/components/layout/navbar";
 import { motion } from "framer-motion";
 import {
   FileText, Clock, CheckCircle2, XCircle,
-  Shield, Bot, Calendar, ExternalLink, Copy, Check
+  Shield, Bot, Calendar, ExternalLink, Copy, Check, Link2
 } from "lucide-react";
+
+const stellarTxUrl = (tx: string) => `https://stellar.expert/explorer/testnet/tx/${tx}`;
 
 export default function RunDetailPage() {
   const params = useParams();
@@ -30,6 +32,8 @@ export default function RunDetailPage() {
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  const stellarUrl = run?.stellar_transaction ? stellarTxUrl(run.stellar_transaction) : null;
 
   if (loading) {
     return (
@@ -112,8 +116,8 @@ export default function RunDetailPage() {
                 <span className="text-sm font-medium text-gray-300">Recorded Actions</span>
               </div>
               <div className="p-5 space-y-3">
-                {run.action_log.map((item) => (
-                  <div key={item.step} className="flex gap-3 rounded-lg bg-white/[0.02] p-3">
+                {run.action_log.map((item, index) => (
+                  <div key={`${item.step}-${item.action}-${index}`} className="flex gap-3 rounded-lg bg-white/[0.02] p-3">
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/10 text-xs text-cyan-400">
                       {item.step}
                     </span>
@@ -151,10 +155,23 @@ export default function RunDetailPage() {
           </div>
 
           {/* Blockchain Proof */}
-          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 overflow-hidden">
-            <div className="px-5 py-3 border-b border-cyan-500/10 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-cyan-400" />
-              <span className="text-sm font-medium text-cyan-300">Blockchain Proof</span>
+          <div className={`rounded-xl border overflow-hidden ${
+            stellarUrl
+              ? "border-emerald-500/30 bg-emerald-500/5"
+              : "border-amber-500/20 bg-amber-500/5"
+          }`}>
+            <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Shield className={`h-4 w-4 ${stellarUrl ? "text-emerald-400" : "text-amber-400"}`} />
+                <span className="text-sm font-medium text-white">Stellar Testnet Proof</span>
+              </div>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                stellarUrl
+                  ? "bg-emerald-500/10 text-emerald-400"
+                  : "bg-amber-500/10 text-amber-400"
+              }`}>
+                {stellarUrl ? "Anchored on-chain" : "Not anchored"}
+              </span>
             </div>
             <div className="p-5 space-y-4">
               <div>
@@ -169,21 +186,25 @@ export default function RunDetailPage() {
                 </div>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">Stellar Transaction</p>
-                {run.stellar_transaction ? (
-                  <div className="flex items-center gap-2">
-                    <code className="text-sm text-cyan-400 font-mono">{run.stellar_transaction.slice(0, 24)}...</code>
+                <p className="text-xs text-gray-500 mb-2">Stellar Transaction ID</p>
+                {stellarUrl && run.stellar_transaction ? (
+                  <div className="space-y-3">
+                    <code className="block break-all rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-emerald-300 font-mono">
+                      {run.stellar_transaction}
+                    </code>
                     <a
-                      href={`https://stellar.expert/explorer/testnet/tx/${run.stellar_transaction}`}
+                      href={stellarUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="shrink-0 p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-cyan-400 transition-all"
+                      className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20"
                     >
+                      <Link2 className="h-4 w-4" />
+                      Open proof on Stellar Expert
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-600">Not yet anchored on-chain</p>
+                  <p className="text-sm text-amber-300">No Stellar transaction was stored for this run.</p>
                 )}
               </div>
             </div>

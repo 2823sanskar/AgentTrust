@@ -27,7 +27,8 @@ class Settings(BaseSettings):
 
     # Browser Agent
     BROWSER_AGENT_HEADLESS: bool = True
-    BROWSER_AGENT_TIMEOUT_MS: int = 15000
+    BROWSER_AGENT_ACTION_TIMEOUT_MS: int = 45000
+    BROWSER_AGENT_NAVIGATION_TIMEOUT_MS: int = 60000
 
     # App
     APP_NAME: str = "AgentTrust"
