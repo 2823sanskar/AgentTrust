@@ -10,17 +10,44 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, role: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function getStoredToken() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem("access_token");
+  } catch {
+    return null;
+  }
+}
+
+function setStoredToken(token: string) {
+  try {
+    window.localStorage.setItem("access_token", token);
+  } catch {
+    throw new Error("Browser storage is blocked. Enable site storage, then sign in again.");
+  }
+}
+
+function clearStoredToken() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem("access_token");
+  } catch {
+    // Nothing else to clear when browser storage is unavailable.
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadUser = useCallback(async () => {
-    const token = localStorage.getItem("access_token");
+    const token = getStoredToken();
     if (!token) {
       setIsLoading(false);
       return;
@@ -29,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userData = await api.me();
       setUser(userData);
     } catch {
-      localStorage.removeItem("access_token");
+      clearStoredToken();
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -41,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadUser]);
 
   const handleAuthResponse = (response: TokenResponse) => {
-    localStorage.setItem("access_token", response.access_token);
+    setStoredToken(response.access_token);
     setUser(response.user);
   };
 
@@ -55,8 +82,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     handleAuthResponse(response);
   };
 
+  const refreshUser = async () => {
+    const userData = await api.me();
+    setUser(userData);
+  };
+
   const logout = () => {
-    localStorage.removeItem("access_token");
+    clearStoredToken();
     setUser(null);
   };
 
@@ -68,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         login,
         register,
+        refreshUser,
         logout,
       }}
     >

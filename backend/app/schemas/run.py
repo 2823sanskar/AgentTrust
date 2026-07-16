@@ -26,6 +26,8 @@ class RunResponse(BaseModel):
     stellar_transaction: Optional[str]
     agent_name: Optional[str] = None
     user_name: Optional[str] = None
+    user_stellar_wallet_address: Optional[str] = None
+    user_stellar_wallet_network: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

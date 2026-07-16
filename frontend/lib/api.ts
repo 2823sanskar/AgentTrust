@@ -29,7 +29,11 @@ function formatApiError(detail: unknown, fallback: string): string {
 class ApiClient {
   private getToken(): string | null {
     if (typeof window === "undefined") return null;
-    return localStorage.getItem("access_token");
+    try {
+      return window.localStorage.getItem("access_token");
+    } catch {
+      return null;
+    }
   }
 
   private async request<T>(
@@ -81,6 +85,17 @@ class ApiClient {
 
   async me() {
     return this.request<import("@/types").User>("/me");
+  }
+
+  async connectWallet(data: { stellar_wallet_address: string; stellar_wallet_network: string }) {
+    return this.request<import("@/types").User>("/me/wallet", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async disconnectWallet() {
+    return this.request<import("@/types").User>("/me/wallet", { method: "DELETE" });
   }
 
   // Agents

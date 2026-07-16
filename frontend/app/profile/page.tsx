@@ -8,8 +8,9 @@ import { Agent, Run } from "@/types";
 import { Navbar } from "@/components/layout/navbar";
 import { AgentCard } from "@/components/agents/agent-card";
 import { motion } from "framer-motion";
-import { User, Mail, Calendar, Bot, Activity } from "lucide-react";
+import { User, Mail, Calendar, Bot, Activity, Wallet } from "lucide-react";
 import Link from "next/link";
+import { StellarWalletButton } from "@/components/wallet/stellar-wallet-button";
 
 export default function ProfilePage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -53,7 +54,8 @@ export default function ProfilePage() {
         <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
           {/* Profile header */}
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 mb-8">
-            <div className="flex items-center gap-6">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-6">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-3xl font-bold text-white">
                 {user.name.charAt(0).toUpperCase()}
               </div>
@@ -65,7 +67,33 @@ export default function ProfilePage() {
                   <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> Joined {new Date(user.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
+              </div>
+              <StellarWalletButton />
             </div>
+          </div>
+
+          {/* Stellar Wallet */}
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6 mb-8">
+            <div className="mb-4 flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-cyan-400" />
+              <h2 className="text-lg font-semibold text-white">Stellar Wallet</h2>
+            </div>
+            {user.stellar_wallet_address ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-gray-500">Public Key</p>
+                  <code className="block break-all text-sm text-emerald-300">{user.stellar_wallet_address}</code>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Network</p>
+                  <p className="text-sm text-white capitalize">{user.stellar_wallet_network || "testnet"}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">
+                Connect Freighter to show Stellar identity on your AgentTrust account.
+              </p>
+            )}
           </div>
 
           {/* Stats */}

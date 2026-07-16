@@ -32,6 +32,8 @@ class Run(Base):
     )
     hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     stellar_transaction: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    user_stellar_wallet_address: Mapped[str | None] = mapped_column(String(56), nullable=True)
+    user_stellar_wallet_network: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # Relationships
     agent = relationship("Agent", back_populates="runs", lazy="selectin")

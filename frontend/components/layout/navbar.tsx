@@ -13,6 +13,7 @@ import {
   LogIn,
   UserPlus,
 } from "lucide-react";
+import { StellarWalletButton } from "@/components/wallet/stellar-wallet-button";
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -64,6 +65,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
+                <StellarWalletButton compact />
                 <Link
                   href="/profile"
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
@@ -129,6 +131,9 @@ export function Navbar() {
               <div className="mt-2 pt-2 border-t border-white/5">
                 {isAuthenticated ? (
                   <>
+                    <div className="px-4 py-3">
+                      <StellarWalletButton />
+                    </div>
                     <Link
                       href="/profile"
                       onClick={() => setMobileOpen(false)}

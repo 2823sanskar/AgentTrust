@@ -14,6 +14,7 @@ from fastapi import HTTPException, status
 
 from app.models.run import Run
 from app.models.agent import Agent
+from app.models.user import User
 from app.schemas.run import RunResponse, RunListResponse, VerificationResponse
 from app.services.ai_provider import execute_ai_provider
 from app.services.browser_agent import BrowserAgentExecutionError, execute_browser_agent
@@ -48,6 +49,9 @@ async def execute_agent(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
     if agent.status != "active":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Agent is inactive")
+
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
 
     # 2. Generate Run ID
     run_id = uuid.uuid4()
@@ -120,6 +124,8 @@ async def execute_agent(
         created_at=created_at,
         hash=execution_hash,
         stellar_transaction=stellar_tx,
+        user_stellar_wallet_address=user.stellar_wallet_address if user else None,
+        user_stellar_wallet_network=user.stellar_wallet_network if user else None,
     )
     db.add(run)
     await db.flush()
@@ -249,4 +255,6 @@ def _run_to_response(run: Run) -> RunResponse:
         stellar_transaction=run.stellar_transaction,
         agent_name=run.agent.name if run.agent else None,
         user_name=run.user.name if run.user else None,
+        user_stellar_wallet_address=run.user_stellar_wallet_address or (run.user.stellar_wallet_address if run.user else None),
+        user_stellar_wallet_network=run.user_stellar_wallet_network or (run.user.stellar_wallet_network if run.user else None),
     )

@@ -9,7 +9,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { motion } from "framer-motion";
 import {
   FileText, Clock, CheckCircle2, XCircle,
-  Shield, Bot, Calendar, ExternalLink, Copy, Check, Link2
+  Shield, Bot, Calendar, ExternalLink, Copy, Check, Link2, Wallet
 } from "lucide-react";
 
 const stellarTxUrl = (tx: string) => `https://stellar.expert/explorer/testnet/tx/${tx}`;
@@ -204,7 +204,25 @@ export default function RunDetailPage() {
                     </a>
                   </div>
                 ) : (
-                  <p className="text-sm text-amber-300">No Stellar transaction was stored for this run.</p>
+                <p className="text-sm text-amber-300">No Stellar transaction was stored for this run.</p>
+                )}
+              </div>
+              <div className="border-t border-white/5 pt-4">
+                <p className="mb-2 flex items-center gap-1 text-xs text-gray-500">
+                  <Wallet className="h-3.5 w-3.5" />
+                  User Stellar Wallet
+                </p>
+                {run.user_stellar_wallet_address ? (
+                  <div className="space-y-1">
+                    <code className="block break-all rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-cyan-300 font-mono">
+                      {run.user_stellar_wallet_address}
+                    </code>
+                    <p className="text-xs text-gray-500 capitalize">
+                      Connected wallet network: {run.user_stellar_wallet_network || "testnet"}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">This run was created without a connected Stellar wallet.</p>
                 )}
               </div>
             </div>

@@ -5,6 +5,8 @@ export interface User {
   name: string;
   email: string;
   role: "developer" | "user";
+  stellar_wallet_address: string | null;
+  stellar_wallet_network: string | null;
   created_at: string;
 }
 
@@ -61,6 +63,8 @@ export interface Run {
   stellar_transaction: string | null;
   agent_name: string | null;
   user_name: string | null;
+  user_stellar_wallet_address: string | null;
+  user_stellar_wallet_network: string | null;
 }
 
 export interface ActionLogEntry {

@@ -13,6 +13,8 @@ import {
   User, Calendar, BarChart3, Shield, Activity
 } from "lucide-react";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+
 export default function AgentDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -42,8 +44,169 @@ export default function AgentDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#060612] flex items-center justify-center">
+      <div id="agent-detail-native-root" className="min-h-screen bg-[#060612] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(() => {
+  if (window.__agentTrustAgentDetailFallbackInstalled) return;
+  window.__agentTrustAgentDetailFallbackInstalled = true;
+  const apiBase = ${JSON.stringify(API_BASE)};
+  const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[char]));
+  const formatDate = (value) => {
+    try {
+      return new Date(value).toLocaleDateString();
+    } catch {
+      return "";
+    }
+  };
+  const request = async (path) => {
+    const response = await fetch(apiBase + path);
+    if (!response.ok) throw new Error("Request failed");
+    return response.json();
+  };
+  const renderNotFound = (root) => {
+    root.className = "min-h-screen bg-[#060612] text-white";
+    root.innerHTML = \`
+      <nav class="border-b border-white/10 bg-[#060612]/95">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <a href="/" class="text-lg font-bold text-white">AgentTrust</a>
+          <a href="/agents" class="text-sm text-cyan-400">Agents</a>
+        </div>
+      </nav>
+      <main class="pt-32 text-center">
+        <p class="text-gray-500 text-lg">Agent not found</p>
+      </main>
+    \`;
+  };
+  const render = (root, agent, trust, runsRes) => {
+    const runs = runsRes.runs || [];
+    const providerClass = {
+      groq: "from-orange-500 to-red-500",
+      openai: "from-emerald-500 to-teal-500",
+      gemini: "from-blue-500 to-purple-500",
+      openrouter: "from-violet-500 to-fuchsia-500",
+      browser: "from-cyan-500 to-sky-500",
+    }[agent.provider] || "from-cyan-500 to-blue-500";
+    root.className = "min-h-screen bg-[#060612] text-white";
+    root.innerHTML = \`
+      <nav class="border-b border-white/10 bg-[#060612]/95">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <a href="/" class="text-lg font-bold text-white">AgentTrust</a>
+          <div class="flex items-center gap-4 text-sm">
+            <a href="/agents" class="text-gray-400 hover:text-white">Agents</a>
+            <a href="/dashboard" class="text-gray-400 hover:text-white">Dashboard</a>
+          </div>
+        </div>
+      </nav>
+      <main class="pt-10 pb-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+        <section class="rounded-2xl border border-white/10 bg-white/[0.02] p-8 mb-6">
+          <div class="flex flex-col md:flex-row md:items-start gap-6">
+            <div class="flex-1">
+              <div class="flex items-center gap-3 mb-3">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r \${providerClass} text-white">\${escapeHtml(agent.provider).toUpperCase()}</span>
+                <span class="text-xs text-gray-500">\${escapeHtml(agent.model)}</span>
+              </div>
+              <h1 class="text-3xl font-bold text-white mb-2">\${escapeHtml(agent.name)}</h1>
+              <p class="text-gray-400 mb-4">\${escapeHtml(agent.description || "No description")}</p>
+              <div class="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                <span>By \${escapeHtml(agent.developer_name || "Unknown")}</span>
+                <span>\${formatDate(agent.created_at)}</span>
+                \${agent.category ? \`<span class="px-2 py-0.5 rounded-full bg-white/5 text-xs">\${escapeHtml(agent.category)}</span>\` : ""}
+              </div>
+            </div>
+            <div class="flex flex-col items-start md:items-center gap-4">
+              <div class="rounded-xl border border-white/10 bg-white/[0.03] px-5 py-4 text-center min-w-32">
+                <p class="text-3xl font-bold text-cyan-400">\${Math.round(agent.trust_score || 0)}</p>
+                <p class="text-xs text-gray-500">Trust Score</p>
+              </div>
+              <a href="/agents/\${agent.id}/execute" class="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold">Execute Agent</a>
+            </div>
+          </div>
+        </section>
+        \${trust ? \`
+          <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="rounded-xl border border-white/10 bg-white/[0.02] p-5 text-center"><p class="text-2xl font-bold text-white">\${(trust.success_rate * 100).toFixed(1)}%</p><p class="text-xs text-gray-500">Success Rate</p></div>
+            <div class="rounded-xl border border-white/10 bg-white/[0.02] p-5 text-center"><p class="text-2xl font-bold text-white">\${trust.average_latency.toFixed(2)}s</p><p class="text-xs text-gray-500">Avg Latency</p></div>
+            <div class="rounded-xl border border-white/10 bg-white/[0.02] p-5 text-center"><p class="text-2xl font-bold text-white">\${trust.verified_runs}</p><p class="text-xs text-gray-500">Verified Runs</p></div>
+            <div class="rounded-xl border border-white/10 bg-white/[0.02] p-5 text-center"><p class="text-2xl font-bold text-white">\${trust.total_runs}</p><p class="text-xs text-gray-500">Total Runs</p></div>
+          </section>
+        \` : ""}
+        <section class="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+          <div class="px-6 py-4 border-b border-white/5">
+            <h2 class="text-lg font-semibold text-white">Execution History</h2>
+          </div>
+          \${runs.length ? \`
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead>
+                  <tr class="border-b border-white/5">
+                    <th class="text-left text-xs font-medium text-gray-500 uppercase px-6 py-3">Run ID</th>
+                    <th class="text-left text-xs font-medium text-gray-500 uppercase px-6 py-3">Status</th>
+                    <th class="text-left text-xs font-medium text-gray-500 uppercase px-6 py-3">Time</th>
+                    <th class="text-left text-xs font-medium text-gray-500 uppercase px-6 py-3">Date</th>
+                    <th class="text-left text-xs font-medium text-gray-500 uppercase px-6 py-3">Proof</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                  \${runs.map((run) => \`
+                    <tr class="hover:bg-white/[0.02]">
+                      <td class="px-6 py-4"><a href="/runs/\${run.id}" class="text-sm text-cyan-400 font-mono">\${escapeHtml(String(run.id).slice(0, 8))}...</a></td>
+                      <td class="px-6 py-4"><span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium \${run.status === "success" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}">\${escapeHtml(run.status)}</span></td>
+                      <td class="px-6 py-4 text-sm text-gray-500">\${Number(run.execution_time || 0).toFixed(2)}s</td>
+                      <td class="px-6 py-4 text-sm text-gray-500">\${formatDate(run.created_at)}</td>
+                      <td class="px-6 py-4">\${run.stellar_transaction ? '<span class="text-xs text-cyan-400">On-chain</span>' : '<span class="text-xs text-gray-600">Pending</span>'}</td>
+                    </tr>
+                  \`).join("")}
+                </tbody>
+              </table>
+            </div>
+          \` : \`
+            <div class="p-12 text-center">
+              <p class="text-gray-500">No executions yet</p>
+            </div>
+          \`}
+        </section>
+      </main>
+    \`;
+  };
+  const setup = async () => {
+    const root = document.getElementById("agent-detail-native-root");
+    if (!root) return;
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    if (document.querySelector("h1")) return;
+    const id = window.location.pathname.split("/").filter(Boolean).pop();
+    if (!id) {
+      renderNotFound(root);
+      return;
+    }
+    try {
+      const [agent, runsRes] = await Promise.all([
+        request("/agents/" + encodeURIComponent(id)),
+        request("/runs?agent_id=" + encodeURIComponent(id) + "&page_size=10"),
+      ]);
+      let trust = null;
+      try {
+        trust = await request("/trust/" + encodeURIComponent(id));
+      } catch {}
+      render(root, agent, trust, runsRes);
+    } catch {
+      renderNotFound(root);
+    }
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup, { once: true });
+  else setup();
+})();
+            `,
+          }}
+        />
       </div>
     );
   }

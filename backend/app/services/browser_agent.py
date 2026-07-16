@@ -71,6 +71,28 @@ def _is_public_result(href: str | None) -> bool:
     return bool(urlparse(href).netloc)
 
 
+def _error_text(exc: Exception) -> str:
+    message = str(exc).strip()
+    if message:
+        return message
+    return f"{type(exc).__name__}: {repr(exc)}"
+
+
+async def _goto_first_available(page, urls: list[str], step: int, action_log: list[dict]) -> str:
+    last_error = ""
+    for url in urls:
+        try:
+            await page.goto(url, wait_until="domcontentloaded")
+            action_log[-1].update(status="success", target=page.url, note=f"Page loaded at {page.url}")
+            return page.url
+        except Exception as exc:
+            last_error = _error_text(exc)
+            action_log[-1].update(status="failure", target=url, note=last_error)
+            if url != urls[-1]:
+                action_log.append(_log(step, "Retried search provider", urls[-1], "pending", "Primary search page failed; trying fallback search."))
+    raise BrowserAgentExecutionError(f"Search page failed: {last_error}", action_log)
+
+
 async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
     action_log: list[dict] = []
     step = 1
@@ -84,6 +106,7 @@ async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
     requested_url = _extract_url(task)
     query = _search_query(task)
     search_url = f"https://www.bing.com/search?q={quote_plus(query)}"
+    fallback_search_url = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
     must_stop_before_transaction = _requests_transaction(task)
     current_target = requested_url or search_url
 
@@ -107,12 +130,15 @@ async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
             else:
                 action_log.append(_log(step, "Searched the web", query, "pending", "Opening search results directly for the research query."))
 
-            await page.goto(current_target, wait_until="domcontentloaded")
-            action_log[-1].update(status="success", target=page.url, note=f"Page loaded at {page.url}")
+            if requested_url:
+                await page.goto(current_target, wait_until="domcontentloaded")
+                action_log[-1].update(status="success", target=page.url, note=f"Page loaded at {page.url}")
+            else:
+                await _goto_first_available(page, [search_url, fallback_search_url], step, action_log)
             step += 1
 
             if not requested_url:
-                result_links = page.locator('li.b_algo h2 a, a[data-testid="result-title-a"], article h2 a, .result__title a')
+                result_links = page.locator('li.b_algo h2 a, a[data-testid="result-title-a"], article h2 a, .result__title a, a.result__a')
                 candidates: list[tuple[str, str]] = []
                 for index in range(min(await result_links.count(), 10)):
                     link = result_links.nth(index)
@@ -159,11 +185,12 @@ async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
             await context.close()
             return response, action_log
     except Exception as exc:
+        message = _error_text(exc)
         if action_log and action_log[-1]["status"] == "pending":
-            action_log[-1].update(status="failure", note=str(exc))
+            action_log[-1].update(status="failure", note=message)
         else:
-            action_log.append(_log(step, "Browser action failed", current_target, "failure", str(exc)))
-        raise BrowserAgentExecutionError(f"Browser agent failed: {exc}", action_log) from exc
+            action_log.append(_log(step, "Browser action failed", current_target, "failure", message))
+        raise BrowserAgentExecutionError(f"Browser agent failed: {message}", action_log) from exc
     finally:
         if browser:
             await browser.close()

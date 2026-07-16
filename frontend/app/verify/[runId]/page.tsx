@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import {
   ShieldCheck, ShieldAlert, ShieldX,
   ExternalLink, CheckCircle2, XCircle,
-  Copy, Check, Link2
+  Copy, Check, Link2, Wallet
 } from "lucide-react";
 
 const stellarTxUrl = (tx: string) => `https://stellar.expert/explorer/testnet/tx/${tx}`;
@@ -227,6 +227,26 @@ export default function VerifyPage() {
                   <p className="text-white">{new Date(result.run_details.created_at).toLocaleString()}</p>
                 </div>
               </div>
+            </div>
+
+            {/* User Wallet */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-300">
+                <Wallet className="h-4 w-4 text-cyan-400" />
+                User Stellar Wallet
+              </h3>
+              {result.run_details.user_stellar_wallet_address ? (
+                <div className="space-y-2">
+                  <code className="block break-all rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-cyan-300 font-mono">
+                    {result.run_details.user_stellar_wallet_address}
+                  </code>
+                  <p className="text-xs text-gray-500 capitalize">
+                    Connected wallet network: {result.run_details.user_stellar_wallet_network || "testnet"}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">No user wallet was connected for this run.</p>
+              )}
             </div>
           </div>
         </motion.div>

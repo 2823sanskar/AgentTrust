@@ -13,6 +13,8 @@ import {
   FileText, ArrowRight, Loader2, Shield
 } from "lucide-react";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+
 export default function ExecuteAgentPage() {
   const params = useParams();
   const id = params.id as string;
@@ -45,8 +47,75 @@ export default function ExecuteAgentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#060612] flex items-center justify-center">
+      <div id="execute-native-root" className="min-h-screen bg-[#060612] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(() => {
+  const apiBase = ${JSON.stringify(API_BASE)};
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  const token = () => { try { return localStorage.getItem("access_token"); } catch { return null; } };
+  const req = async (path, opts = {}) => {
+    const t = token();
+    const r = await fetch(apiBase + path, {
+      ...opts,
+      headers: { "Content-Type": "application/json", ...(t ? { Authorization: "Bearer " + t } : {}), ...(opts.headers || {}) },
+    });
+    const p = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(p.detail || "Request failed");
+    return p;
+  };
+  const setup = async () => {
+    const root = document.getElementById("execute-native-root");
+    if (!root) return;
+    await new Promise(r => setTimeout(r, 1200));
+    if (document.querySelector("h1")) return;
+    const id = location.pathname.split("/").filter(Boolean).at(-2);
+    let agent;
+    try { agent = await req("/agents/" + encodeURIComponent(id)); }
+    catch { root.innerHTML = '<p class="text-gray-500">Agent not found</p>'; return; }
+    root.className = "min-h-screen bg-[#060612] text-white";
+    root.innerHTML = \`
+      <nav class="border-b border-white/10"><div class="max-w-6xl mx-auto h-16 px-4 flex items-center justify-between"><a href="/" class="font-bold">AgentTrust</a><a href="/agents/\${agent.id}" class="text-cyan-400 text-sm">View Details</a></div></nav>
+      <main class="pt-10 pb-16 px-4 max-w-4xl mx-auto">
+        <div class="rounded-xl border border-white/10 bg-white/[0.02] p-5 mb-6">
+          <h2 class="text-lg font-semibold">\${esc(agent.name)}</h2><p class="text-sm text-gray-500">\${esc(agent.provider)} / \${esc(agent.model)}</p>
+        </div>
+        <h1 class="text-2xl font-bold mb-6">Execute Agent</h1>
+        \${token() ? \`
+          <label class="block text-sm text-gray-300 mb-2">Your Task</label>
+          <textarea id="native-task" rows="6" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white resize-none" placeholder="Describe the task..."></textarea>
+          <button id="native-execute" class="mt-4 px-8 py-3 rounded-xl bg-cyan-500 text-white font-semibold">Execute</button>
+          <div id="native-result" class="mt-6"></div>
+        \` : \`
+          <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-8 text-center"><p class="text-amber-400 mb-4">You need to sign in to execute agents</p><a href="/login" class="inline-flex px-6 py-3 rounded-xl bg-cyan-500 text-white">Sign In</a></div>
+        \`}
+      </main>
+    \`;
+    document.getElementById("native-execute")?.addEventListener("click", async () => {
+      const task = document.getElementById("native-task")?.value?.trim();
+      const out = document.getElementById("native-result");
+      if (!task || !out) return;
+      out.innerHTML = '<p class="text-cyan-400">Executing...</p>';
+      try {
+        const run = await req("/execute", { method: "POST", body: JSON.stringify({ agent_id: id, task }) });
+        out.innerHTML = \`
+          <div class="rounded-xl border border-white/10 bg-white/[0.02] p-5">
+            <p class="text-sm \${run.status === "success" ? "text-emerald-400" : "text-red-400"}">\${esc(run.status)}</p>
+            <pre class="mt-4 whitespace-pre-wrap text-sm text-gray-300 font-sans">\${esc(run.response)}</pre>
+            <a href="/runs/\${run.id}" class="inline-block mt-4 text-cyan-400 text-sm">View Full Details</a>
+          </div>\`;
+      } catch (e) {
+        out.innerHTML = '<p class="text-red-400">' + esc(e.message || "Execution failed") + '</p>';
+      }
+    });
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup, { once: true }); else setup();
+})();
+            `,
+          }}
+        />
       </div>
     );
   }

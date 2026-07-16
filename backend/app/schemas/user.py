@@ -22,9 +22,20 @@ class UserResponse(BaseModel):
     name: str
     email: str
     role: str
+    stellar_wallet_address: str | None = None
+    stellar_wallet_network: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class WalletConnectRequest(BaseModel):
+    stellar_wallet_address: str = Field(
+        ...,
+        pattern=r"^G[A-Z2-7]{55}$",
+        description="Stellar public account ID.",
+    )
+    stellar_wallet_network: str = Field(default="testnet", max_length=20)
 
 
 class TokenResponse(BaseModel):

@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { getErrorMessage } from "@/lib/api";
-import { motion } from "framer-motion";
 import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -37,12 +38,7 @@ export default function LoginPage() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[128px]" />
       </div>
 
-      <motion.div
-        initial={false}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="w-full max-w-md relative"
-      >
+      <div className="w-full max-w-md relative">
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/25 mb-4">
@@ -54,15 +50,16 @@ export default function LoginPage() {
 
         {/* Form card */}
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form id="login-form" onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div role="alert" className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+              <div id="login-error" role="alert" className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
                 {error}
               </div>
             )}
+            <div id="login-native-error" role="alert" hidden className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400" />
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+              <label htmlFor="login-email" className="block text-sm font-medium text-gray-300 mb-2">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <input
@@ -78,7 +75,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+              <label htmlFor="login-password" className="block text-sm font-medium text-gray-300 mb-2">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <input
@@ -91,8 +88,12 @@ export default function LoginPage() {
                   placeholder="••••••••"
                 />
                 <button
+                  id="login-password-toggle"
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setShowPassword((visible) => !visible)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -126,7 +127,69 @@ export default function LoginPage() {
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+(() => {
+  if (window.__agentTrustLoginFallbackInstalled) return;
+  window.__agentTrustLoginFallbackInstalled = true;
+  const apiBase = ${JSON.stringify(API_BASE)};
+  const showError = (message) => {
+    const fallbackError = document.getElementById("login-native-error");
+    if (!fallbackError) return;
+    fallbackError.textContent = message || "Login failed";
+    fallbackError.hidden = false;
+  };
+  const setup = () => {
+    const form = document.getElementById("login-form");
+    const email = document.getElementById("login-email");
+    const password = document.getElementById("login-password");
+    const toggle = document.getElementById("login-password-toggle");
+    const submit = document.getElementById("login-submit");
+    if (!form || !email || !password) return;
+    if (toggle && !toggle.dataset.nativeReady) {
+      toggle.dataset.nativeReady = "true";
+      toggle.addEventListener("click", () => {
+        const visible = password.type === "text";
+        password.type = visible ? "password" : "text";
+        toggle.setAttribute("aria-label", visible ? "Show password" : "Hide password");
+        toggle.setAttribute("aria-pressed", String(!visible));
+      });
+    }
+    if (form.dataset.nativeReady) return;
+    form.dataset.nativeReady = "true";
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const fallbackError = document.getElementById("login-native-error");
+      if (fallbackError) {
+        fallbackError.hidden = true;
+        fallbackError.textContent = "";
+      }
+      submit?.setAttribute("disabled", "true");
+      try {
+        const response = await fetch(apiBase + "/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.value, password: password.value }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || "Login failed");
+        window.localStorage.setItem("access_token", payload.access_token);
+        window.location.assign("/dashboard");
+      } catch (error) {
+        showError(error instanceof Error ? error.message : "Login failed");
+      } finally {
+        submit?.removeAttribute("disabled");
+      }
+    });
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup, { once: true });
+  else setup();
+})();
+          `,
+        }}
+      />
     </div>
   );
 }
