@@ -21,6 +21,30 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+function isCloudSandboxRun(run: Run) {
+  const actionText = (run.action_log || [])
+    .map((entry) => `${entry.action} ${entry.target} ${entry.note}`)
+    .join(" ")
+    .toLowerCase();
+  const evidenceText = [
+    run.container_stdout,
+    run.container_stderr,
+    run.response,
+    actionText,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    run.routing_mode === "cloud_sandbox" ||
+    actionText.includes("routing_mode=cloud_sandbox") ||
+    actionText.includes("cloud sandbox worker") ||
+    evidenceText.includes("resource isolation boundary") ||
+    evidenceText.includes("pull access denied for clawbot-demo")
+  );
+}
+
 export default function DashboardPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -153,6 +177,7 @@ export default function DashboardPage() {
                     <tr className="border-b border-white/5">
                       <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-4">Run ID</th>
                       <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-4">Agent</th>
+                      <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-4">Route</th>
                       <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-4">Status</th>
                       <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-4">Time</th>
                       <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-4">Hash</th>
@@ -160,7 +185,10 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {runs.map((run) => (
+                    {runs.map((run) => {
+                      const isCloudRun = isCloudSandboxRun(run);
+
+                      return (
                       <tr key={run.id} className="hover:bg-white/[0.02] transition-colors">
                         <td className="px-6 py-4">
                           <Link href={`/runs/${run.id}`} className="text-sm text-cyan-400 hover:text-cyan-300 font-mono">
@@ -168,6 +196,15 @@ export default function DashboardPage() {
                           </Link>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-300">{run.agent_name || "—"}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono border ${
+                            isCloudRun
+                              ? "bg-purple-950/50 text-purple-300 border-purple-800"
+                              : "bg-blue-950/50 text-blue-300 border-blue-800"
+                          }`}>
+                            {isCloudRun ? "AWS Staging" : "Local Engine"}
+                          </span>
+                        </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             run.status === "success"
@@ -200,7 +237,8 @@ export default function DashboardPage() {
                           )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

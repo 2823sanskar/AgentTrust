@@ -49,10 +49,15 @@ class VMSandboxService:
             async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds + 5)) as client:
                 response = await client.post(endpoint, json=payload)
                 response.raise_for_status()
-                return _inspect_exit_state(response.json())
+                result = _inspect_exit_state(response.json())
+                result["routing_mode"] = "cloud_sandbox"
+                result["worker_url"] = self.worker_url
+                return result
         except httpx.TimeoutException:
             return {
                 "status": "failure",
+                "routing_mode": "cloud_sandbox",
+                "worker_url": self.worker_url,
                 "stdout": "",
                 "stderr": "Sandbox worker request timed out",
                 "exit_code": 503,
@@ -127,6 +132,34 @@ def _normalize_action_log(value: Any) -> list[dict]:
     return entries
 
 
+def _with_cloud_routing_entry(
+    action_log: list[dict],
+    *,
+    worker_url: str,
+    agent_image: str,
+    exit_code: int | None,
+    execution_time: float,
+) -> list[dict]:
+    routing_entry = {
+        "step": 1,
+        "action": "Routed through cloud sandbox worker",
+        "target": worker_url.rstrip("/"),
+        "status": "success" if exit_code == 0 else "failure",
+        "note": (
+            f"routing_mode=cloud_sandbox, agent_image={agent_image}, "
+            f"exit_code={exit_code}, execution_span_seconds={execution_time:.4f}"
+        ),
+    }
+
+    normalized = []
+    for index, item in enumerate(action_log, start=2):
+        copied = dict(item)
+        copied["step"] = index
+        normalized.append(copied)
+
+    return [routing_entry, *normalized]
+
+
 async def execute_vm_sandbox_agent(
     worker_url: str,
     agent: Agent,
@@ -152,6 +185,8 @@ async def execute_vm_sandbox_agent(
         response = await client.post(endpoint, json=payload)
         response.raise_for_status()
         data = _inspect_exit_state(response.json())
+        data["routing_mode"] = "cloud_sandbox"
+        data["worker_url"] = worker_url.rstrip("/")
 
     stdout = _truncate(str(data.get("stdout") or ""))
     stderr = _truncate(str(data.get("stderr") or ""))
@@ -172,10 +207,17 @@ async def execute_vm_sandbox_agent(
         execution_time = round(float(data.get("execution_time") or 0), 4)
     except (TypeError, ValueError):
         execution_time = 0.0
+    action_log = _with_cloud_routing_entry(
+        _normalize_action_log(data.get("action_log")),
+        worker_url=worker_url,
+        agent_image=agent.docker_image,
+        exit_code=exit_code,
+        execution_time=execution_time,
+    )
 
     return VmSandboxExecutionResult(
         final_output=final_output,
-        action_log=_normalize_action_log(data.get("action_log")),
+        action_log=action_log,
         stdout=stdout,
         stderr=stderr,
         exit_code=exit_code,

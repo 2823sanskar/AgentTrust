@@ -326,6 +326,7 @@ async def verify_run(db: AsyncSession, run_id: uuid.UUID) -> VerificationRespons
 
 
 def _run_to_response(run: Run) -> RunResponse:
+    routing_mode = _routing_mode_from_run(run)
     return RunResponse(
         id=run.id,
         agent_id=run.agent_id,
@@ -345,4 +346,36 @@ def _run_to_response(run: Run) -> RunResponse:
         user_name=run.user.name if run.user else None,
         user_stellar_wallet_address=run.user_stellar_wallet_address or (run.user.stellar_wallet_address if run.user else None),
         user_stellar_wallet_network=run.user_stellar_wallet_network or (run.user.stellar_wallet_network if run.user else None),
+        routing_mode=routing_mode,
+    )
+
+
+def _routing_mode_from_run(run: Run) -> str:
+    action_log = run.action_log
+    if not action_log:
+        if _is_external_docker_cloud_candidate(run):
+            return "cloud_sandbox"
+        return "local_engine"
+
+    for entry in action_log:
+        if not isinstance(entry, dict):
+            continue
+        action = str(entry.get("action") or "").lower()
+        note = str(entry.get("note") or "").lower()
+        if "cloud sandbox" in action or "routing_mode=cloud_sandbox" in note:
+            return "cloud_sandbox"
+        if "docker sandbox completed" in action:
+            return "local_engine"
+
+    if _is_external_docker_cloud_candidate(run):
+        return "cloud_sandbox"
+
+    return "local_engine"
+
+
+def _is_external_docker_cloud_candidate(run: Run) -> bool:
+    return bool(
+        settings.SANDBOX_WORKER_URL
+        and run.agent
+        and run.agent.provider == "external_docker"
     )

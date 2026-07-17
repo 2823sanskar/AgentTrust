@@ -74,6 +74,7 @@ export interface Run {
   user_name: string | null;
   user_stellar_wallet_address: string | null;
   user_stellar_wallet_network: string | null;
+  routing_mode: "cloud_sandbox" | "local_engine";
 }
 
 export interface ActionLogEntry {

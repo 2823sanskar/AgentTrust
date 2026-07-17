@@ -31,6 +31,7 @@ class RunResponse(BaseModel):
     user_name: Optional[str] = None
     user_stellar_wallet_address: Optional[str] = None
     user_stellar_wallet_network: Optional[str] = None
+    routing_mode: str = "local_engine"
 
     model_config = {"from_attributes": True}
 
