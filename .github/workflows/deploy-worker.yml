@@ -1,0 +1,52 @@
+name: Deploy AgentTrust Sandbox Worker to AWS Staging
+
+on:
+  push:
+    branches: [ main, staging ]
+    paths:
+      - 'sandbox-worker/**'
+
+jobs:
+  deploy:
+    name: Build and Push Sandbox Worker to Cloud Instance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout Repository Code Base
+        uses: actions/checkout@v4
+
+      - name: 2. Initialize Secure SSH Key Configuration
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AWS_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          # Dynamically scan and cache the cloud host signature to prevent interactive prompts
+          ssh-keyscan -H ${{ secrets.AWS_EC2_PUBLIC_IP }} >> ~/.ssh/known_hosts
+
+      - name: 3. Sync Application Assets via High-Speed Rsync
+        run: |
+          # Sync folder contents while purging removed files to preserve environment cleanliness
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/id_rsa" \
+            --exclude '.venv' \
+            --exclude '__pycache__' \
+            --exclude '*.log' \
+            ./sandbox-worker/ ubuntu@${{ secrets.AWS_EC2_PUBLIC_IP }}:/home/ubuntu/sandbox-worker/
+
+      - name: 4. Rebuild Service Stack and Verify Remote Container Health
+        run: |
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.AWS_EC2_PUBLIC_IP }} "
+            cd /home/ubuntu/sandbox-worker &&
+
+            echo '--> Tearing down running staging containers...' &&
+            sudo docker compose -f compose.staging.yml down --remove-orphans &&
+
+            echo '--> Rebuilding container image context...' &&
+            sudo docker compose -f compose.staging.yml up -d --build &&
+
+            echo '--> Awaiting cluster initialization warm-up loop...' &&
+            sleep 5 &&
+
+            echo '--> Interrogating endpoint health validation checks...' &&
+            curl --fail --silent http://localhost:9000/health || (echo 'ERROR: Health checkpoint verification step failed.' && exit 1)
+          "

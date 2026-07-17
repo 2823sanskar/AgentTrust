@@ -14,3 +14,12 @@ frontend/.next/
 
 # Local tooling
 .vscode/
+*.log
+
+# AgentTrust Sandbox Worker & Test Environments
+sandbox-worker/.venv/
+sandbox-worker/__pycache__/
+sandbox-worker/set-env-vars.sh
+tests/compliant-agent/__pycache__/
+agenttrust_*_*/
+.pytest_cache/

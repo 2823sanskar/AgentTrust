@@ -13,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.database import init_db
-from app.api import auth, agents, executions, trust, verify
+from app.api import auth, agents, executions, trust, verify, sandbox
 from app.rate_limit import limiter
 
 # Configure logging
@@ -62,6 +62,7 @@ app.include_router(agents.router)
 app.include_router(executions.router)
 app.include_router(trust.router)
 app.include_router(verify.router)
+app.include_router(sandbox.router)
 
 
 @app.get("/")

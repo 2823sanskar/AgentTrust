@@ -8,6 +8,7 @@ import { Agent, Run } from "@/types";
 import { Navbar } from "@/components/layout/navbar";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { AgentCard } from "@/components/agents/agent-card";
+import CloudStatusBar from "@/app/components/CloudStatusBar";
 import { motion } from "framer-motion";
 import {
   Bot,
@@ -92,6 +93,10 @@ export default function DashboardPage() {
           </h1>
           <p className="text-gray-500 mt-1">Here&apos;s your AgentTrust overview</p>
         </motion.div>
+
+        <div className="mb-6">
+          <CloudStatusBar />
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">

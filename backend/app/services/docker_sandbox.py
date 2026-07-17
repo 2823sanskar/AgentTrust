@@ -30,6 +30,10 @@ IGNORED_COMMAND_OVERRIDES = {
 logger = logging.getLogger(__name__)
 
 MAX_CAPTURE_CHARS = 20000
+MAX_MEMORY = "256m"
+MAX_CPUS = "0.5"
+MAX_PIDS = "50"
+TMPFS_LIMIT = "64m"
 
 
 @dataclass
@@ -113,9 +117,16 @@ async def execute_docker_agent(agent: Agent, run_id: uuid.UUID, task: str) -> Do
             "--network",
             "none",
             "--cpus",
-            "1",
+            MAX_CPUS,
             "--memory",
-            "256m",
+            MAX_MEMORY,
+            "--memory-swap",
+            MAX_MEMORY,
+            "--pids-limit",
+            MAX_PIDS,
+            "--read-only",
+            "--tmpfs",
+            f"/tmp:rw,noexec,nosuid,size={TMPFS_LIMIT}",
             "-v",
             f"{run_dir}:/agenttrust:rw",
             "-e",
@@ -208,6 +219,13 @@ async def execute_docker_agent(agent: Agent, run_id: uuid.UUID, task: str) -> Do
         if timed_out:
             status = "failure"
             final_output = f"Docker execution timed out after {timeout_seconds}s."
+        elif exit_code == 137:
+            status = "failure"
+            final_output = (
+                "CRITICAL ERROR: Resource isolation boundary triggered. "
+                f"The sandbox agent container exceeded its allocated memory limit ({MAX_MEMORY}) "
+                "or was forcefully terminated by the runtime manager."
+            )
         elif exit_code != 0:
             status = "failure"
         elif contract_status and contract_status.lower() not in {"success", "ok", "completed"}:

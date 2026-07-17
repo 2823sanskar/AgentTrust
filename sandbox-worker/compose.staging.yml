@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  agenttrust-sandbox-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: agenttrust-sandbox-worker
+    ports:
+      - "9000:9000"
+    volumes:
+      # Pass through the host machine's docker socket so the worker can launch sandboxed sibling containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Shared host temporary workspace for mounted tracking execution evidence logs
+      - /tmp:/tmp
+    environment:
+      - ENVIRONMENT=production
+      - HOST_TMP_DIR=/tmp
+    restart: unless-stopped

@@ -20,8 +20,10 @@ from app.schemas.run import RunResponse, RunListResponse, VerificationResponse
 from app.services.ai_provider import execute_ai_provider
 from app.services.browser_agent import BrowserAgentExecutionError, execute_browser_agent
 from app.services.docker_sandbox import execute_docker_agent
+from app.services.vm_sandbox import execute_vm_sandbox_agent
 from app.services.trust_service import recalculate_trust_score
 from app.blockchain.stellar import anchor_hash_on_stellar, verify_stellar_transaction
+from app.config import settings
 from app.utils.hashing import compute_execution_hash, hash_to_bytes
 
 logger = logging.getLogger(__name__)
@@ -70,15 +72,25 @@ async def execute_agent(
     container_stdout = None
     container_stderr = None
     exit_code = None
+    execution_time_override = None
     try:
         if agent.provider == "external_docker":
-            docker_result = await execute_docker_agent(agent, run_id, task)
+            if settings.SANDBOX_WORKER_URL:
+                docker_result = await execute_vm_sandbox_agent(
+                    settings.SANDBOX_WORKER_URL,
+                    agent,
+                    run_id,
+                    task,
+                )
+            else:
+                docker_result = await execute_docker_agent(agent, run_id, task)
             response_text = docker_result.final_output
             action_log = docker_result.action_log
             container_stdout = docker_result.stdout
             container_stderr = docker_result.stderr
             exit_code = docker_result.exit_code
             execution_status = docker_result.status
+            execution_time_override = docker_result.execution_time
         elif agent.provider == "browser":
             response_text, action_log = await asyncio.wait_for(
                 execute_browser_agent(task),
@@ -149,7 +161,7 @@ async def execute_agent(
             ]
         execution_status = "failure"
 
-    execution_time = round(time.time() - start_time, 4)
+    execution_time = execution_time_override or round(time.time() - start_time, 4)
 
     # 7. Compute SHA-256 hash
     execution_hash = compute_execution_hash(

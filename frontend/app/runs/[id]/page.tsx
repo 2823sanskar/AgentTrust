@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { Run } from "@/types";
 import { Navbar } from "@/components/layout/navbar";
+import VerificationPanel from "@/app/components/VerificationPanel";
 import { motion } from "framer-motion";
 import {
   FileText, Clock, CheckCircle2, XCircle,
@@ -153,6 +154,17 @@ export default function RunDetailPage() {
             <div className="p-5">
               <pre className="whitespace-pre-wrap text-sm text-gray-300 font-sans leading-relaxed">{run.response || "No response"}</pre>
             </div>
+          </div>
+
+          <div className="mb-4">
+            <VerificationPanel
+              status={run.status}
+              exitCode={run.exit_code ?? -1}
+              executionTime={run.execution_time ?? 0}
+              evidenceHash={run.hash ?? ""}
+              stellarTxId={run.stellar_transaction}
+              actionLog={run.action_log ?? []}
+            />
           </div>
 
           {(run.exit_code !== null || run.container_stdout || run.container_stderr) && (
