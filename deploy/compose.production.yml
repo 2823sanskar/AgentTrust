@@ -1,0 +1,55 @@
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.production
+    container_name: agenttrust-backend
+    env_file:
+      - ./.env.production
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      SANDBOX_WORKER_URL: http://sandbox-worker:9000
+    depends_on:
+      sandbox-worker:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  sandbox-worker:
+    build:
+      context: ../sandbox-worker
+      dockerfile: Dockerfile.production
+    container_name: agenttrust-sandbox-worker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp:/tmp
+    environment:
+      ENVIRONMENT: production
+      HOST_TMP_DIR: /tmp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: agenttrust-nginx
+    depends_on:
+      backend:
+        condition: service_healthy
+      sandbox-worker:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped

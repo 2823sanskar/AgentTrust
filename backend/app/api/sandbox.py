@@ -16,6 +16,7 @@ async def sandbox_health():
             "environment": settings.ENVIRONMENT,
             "worker_url": None,
             "mode": "local",
+            "stellar_configured": bool(settings.STELLAR_SECRET_KEY and settings.STELLAR_PUBLIC_KEY),
             "detail": "SANDBOX_WORKER_URL is not configured; local Docker fallback is active.",
         }
 
@@ -30,6 +31,7 @@ async def sandbox_health():
             "environment": settings.ENVIRONMENT,
             "worker_url": settings.SANDBOX_WORKER_URL,
             "mode": "local",
+            "stellar_configured": bool(settings.STELLAR_SECRET_KEY and settings.STELLAR_PUBLIC_KEY),
             "detail": f"Sandbox worker unreachable: {exc}",
         }
 
@@ -39,5 +41,6 @@ async def sandbox_health():
         "environment": settings.ENVIRONMENT,
         "worker_url": settings.SANDBOX_WORKER_URL,
         "mode": "cloud" if settings.ENVIRONMENT == "production" and docker_ready else "local",
+        "stellar_configured": bool(settings.STELLAR_SECRET_KEY and settings.STELLAR_PUBLIC_KEY),
         "worker": worker_health,
     }

@@ -1,6 +1,8 @@
 # Local secrets
 backend/.env
 frontend/.env.local
+deploy/.env.production
+deploy/*.pem
 
 # Python
 __pycache__/

@@ -77,4 +77,10 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "environment": settings.ENVIRONMENT,
+        "stellar_configured": bool(settings.STELLAR_SECRET_KEY and settings.STELLAR_PUBLIC_KEY),
+        "stellar_network": settings.STELLAR_NETWORK,
+        "sandbox_worker_configured": bool(settings.SANDBOX_WORKER_URL),
+    }
