@@ -33,7 +33,7 @@ MAX_CAPTURE_CHARS = 20000
 MAX_MEMORY = "256m"
 MAX_CPUS = "0.5"
 MAX_PIDS = "50"
-TMPFS_LIMIT = "64m"
+NETWORK_MODE = "bridge"
 
 
 @dataclass
@@ -115,7 +115,7 @@ async def execute_docker_agent(agent: Agent, run_id: uuid.UUID, task: str) -> Do
             "run",
             "--rm",
             "--network",
-            "none",
+            NETWORK_MODE,
             "--cpus",
             MAX_CPUS,
             "--memory",
@@ -124,9 +124,6 @@ async def execute_docker_agent(agent: Agent, run_id: uuid.UUID, task: str) -> Do
             MAX_MEMORY,
             "--pids-limit",
             MAX_PIDS,
-            "--read-only",
-            "--tmpfs",
-            f"/tmp:rw,noexec,nosuid,size={TMPFS_LIMIT}",
             "-v",
             f"{run_dir}:/agenttrust:rw",
             "-e",
@@ -190,13 +187,23 @@ async def execute_docker_agent(agent: Agent, run_id: uuid.UUID, task: str) -> Do
             [
                 {
                     "step": len(action_log) + 1,
+                    "action": "Behavioral evaluation profile active",
+                    "target": "docker_runtime",
+                    "status": "success",
+                    "note": (
+                        f"network_mode={NETWORK_MODE}, read_only_root=false, "
+                        f"memory={MAX_MEMORY}, cpus={MAX_CPUS}, pids_limit={MAX_PIDS}"
+                    ),
+                },
+                {
+                    "step": len(action_log) + 2,
                     "action": "Docker sandbox completed",
                     "target": agent.docker_image,
                     "status": "failure" if timed_out or exit_code else "success",
                     "note": f"exit_code={exit_code}, duration={execution_time:.2f}s",
                 },
                 {
-                    "step": len(action_log) + 2,
+                    "step": len(action_log) + 3,
                     "action": "Captured stdout",
                     "target": "container_stdout",
                     "status": "success",

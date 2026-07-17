@@ -22,7 +22,8 @@ MAX_MEMORY = "256m"
 MAX_MEMORY_BYTES = 256 * 1024 * 1024
 MAX_CPUS = "0.5"
 MAX_PIDS = "50"
-TMPFS_LIMIT = "64m"
+NETWORK_MODE = "bridge"
+READ_ONLY_ROOT = False
 
 # AWS Staging/Production Host Directory Path Fallback
 HOST_TMP_DIR = os.getenv("HOST_TMP_DIR", None)
@@ -181,7 +182,9 @@ async def health() -> dict[str, Any]:
         "memory_swap_limit": MAX_MEMORY,
         "cpus": MAX_CPUS,
         "pids_limit": MAX_PIDS,
-        "read_only_root": True,
+        "network_mode": NETWORK_MODE,
+        "read_only_root": READ_ONLY_ROOT,
+        "behavioral_profile": "high_trust_rw_internet",
     }
 
 
@@ -215,7 +218,7 @@ async def run_agent(request: RunRequest) -> RunResponse:
             "run",
             "--rm",
             "--network",
-            "none",
+            NETWORK_MODE,
             "--cpus",
             MAX_CPUS,
             "--memory",
@@ -224,9 +227,6 @@ async def run_agent(request: RunRequest) -> RunResponse:
             MAX_MEMORY,
             "--pids-limit",
             MAX_PIDS,
-            "--read-only",
-            "--tmpfs",
-            f"/tmp:rw,noexec,nosuid,size={TMPFS_LIMIT}",
             "--storage-opt",
             "size=1g",
             "-v",
@@ -300,6 +300,21 @@ async def run_agent(request: RunRequest) -> RunResponse:
                     execution_time,
                 )
             ]
+        action_log.insert(
+            0,
+            ActionLogEntry(
+                step=1,
+                action="Behavioral evaluation profile active",
+                target="docker_runtime",
+                status="success",
+                note=(
+                    f"network_mode={NETWORK_MODE}, read_only_root=false, "
+                    f"memory={MAX_MEMORY}, cpus={MAX_CPUS}, pids_limit={MAX_PIDS}, storage_opt=size=1g"
+                ),
+            ),
+        )
+        for index, entry in enumerate(action_log, start=1):
+            entry.step = index
 
         if stderr:
             action_log.append(
