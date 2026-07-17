@@ -3,6 +3,7 @@ Execution service: the core pipeline for running AI agents.
 Orchestrates AI execution, hashing, blockchain anchoring, and trust recalculation.
 """
 
+import asyncio
 import uuid
 import time
 import logging
@@ -18,11 +19,17 @@ from app.models.user import User
 from app.schemas.run import RunResponse, RunListResponse, VerificationResponse
 from app.services.ai_provider import execute_ai_provider
 from app.services.browser_agent import BrowserAgentExecutionError, execute_browser_agent
+from app.services.docker_sandbox import execute_docker_agent
 from app.services.trust_service import recalculate_trust_score
 from app.blockchain.stellar import anchor_hash_on_stellar, verify_stellar_transaction
 from app.utils.hashing import compute_execution_hash, hash_to_bytes
 
 logger = logging.getLogger(__name__)
+
+# Maximum total seconds allowed for a browser agent run (3 minutes)
+BROWSER_AGENT_TOTAL_TIMEOUT = 180
+# Maximum total seconds allowed for an AI provider call (1 minute)
+AI_PROVIDER_TIMEOUT = 60
 
 
 async def execute_agent(
@@ -59,18 +66,72 @@ async def execute_agent(
 
     # 3-5. Execute AI provider and measure time
     start_time = time.time()
+    action_log = None
+    container_stdout = None
+    container_stderr = None
+    exit_code = None
     try:
-        action_log = None
-        if agent.provider == "browser":
-            response_text, action_log = await execute_browser_agent(task)
-        else:
-            response_text = await execute_ai_provider(
-                provider=agent.provider,
-                model=agent.model,
-                system_prompt=agent.system_prompt,
-                task=task,
+        if agent.provider == "external_docker":
+            docker_result = await execute_docker_agent(agent, run_id, task)
+            response_text = docker_result.final_output
+            action_log = docker_result.action_log
+            container_stdout = docker_result.stdout
+            container_stderr = docker_result.stderr
+            exit_code = docker_result.exit_code
+            execution_status = docker_result.status
+        elif agent.provider == "browser":
+            response_text, action_log = await asyncio.wait_for(
+                execute_browser_agent(task),
+                timeout=BROWSER_AGENT_TOTAL_TIMEOUT,
             )
-        execution_status = "success"
+            execution_status = "success"
+        else:
+            response_text = await asyncio.wait_for(
+                execute_ai_provider(
+                    provider=agent.provider,
+                    model=agent.model,
+                    system_prompt=agent.system_prompt,
+                    task=task,
+                ),
+                timeout=AI_PROVIDER_TIMEOUT,
+            )
+            execution_status = "success"
+    except asyncio.TimeoutError:
+        timeout_sec = (
+            BROWSER_AGENT_TOTAL_TIMEOUT
+            if agent.provider == "browser"
+            else AI_PROVIDER_TIMEOUT
+        )
+        msg = f"Execution timed out after {timeout_sec}s"
+        logger.error(f"{msg} for run {run_id}")
+        if agent.provider == "browser":
+            response_text = (
+                "Browser run recorded with partial results.\n\n"
+                f"The browser agent reached the {timeout_sec}s safety limit before finishing. "
+                "The run is stored for audit instead of failing the execution."
+            )
+            action_log = [
+                {
+                    "step": 1,
+                    "action": "Browser safety timeout",
+                    "target": agent.provider,
+                    "status": "blocked",
+                    "note": msg,
+                }
+            ]
+            execution_status = "success"
+        else:
+            response_text = msg
+            action_log = [
+                {
+                    "step": 1,
+                    "action": "Execution timed out",
+                    "target": agent.provider,
+                    "status": "failure",
+                    "note": msg,
+                }
+            ]
+            execution_status = "failure"
     except Exception as e:
         logger.error(f"AI execution failed for run {run_id}: {e}")
         response_text = f"Execution error: {str(e)}"
@@ -101,6 +162,9 @@ async def execute_agent(
         execution_time=execution_time,
         created_at=created_at,
         action_log=action_log,
+        container_stdout=container_stdout,
+        container_stderr=container_stderr,
+        exit_code=exit_code,
     )
 
     # 8. Submit hash to Stellar Testnet
@@ -119,6 +183,9 @@ async def execute_agent(
         task=task,
         response=response_text,
         action_log=action_log,
+        container_stdout=container_stdout,
+        container_stderr=container_stderr,
+        exit_code=exit_code,
         status=execution_status,
         execution_time=execution_time,
         created_at=created_at,
@@ -130,8 +197,11 @@ async def execute_agent(
     db.add(run)
     await db.flush()
 
-    # 10. Recalculate trust score
-    await recalculate_trust_score(db, agent_id)
+    # 10. Recalculate trust score. Never let scoring failure hide a stored run.
+    try:
+        await recalculate_trust_score(db, agent_id)
+    except Exception as e:
+        logger.error(f"Trust recalculation failed for run {run_id}: {e}")
 
     # 11. Return complete run
     await db.refresh(run)
@@ -199,6 +269,9 @@ async def verify_run(db: AsyncSession, run_id: uuid.UUID) -> VerificationRespons
         task=run.task,
         response=run.response,
         action_log=run.action_log,
+        container_stdout=run.container_stdout,
+        container_stderr=run.container_stderr,
+        exit_code=run.exit_code,
         status=run.status,
         execution_time=run.execution_time,
         created_at=run.created_at,
@@ -248,6 +321,9 @@ def _run_to_response(run: Run) -> RunResponse:
         task=run.task,
         response=run.response,
         action_log=run.action_log,
+        container_stdout=run.container_stdout,
+        container_stderr=run.container_stderr,
+        exit_code=run.exit_code,
         status=run.status,
         execution_time=run.execution_time,
         created_at=run.created_at,

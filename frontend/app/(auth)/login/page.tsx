@@ -6,8 +6,6 @@ import Link from "next/link";
 import { getErrorMessage } from "@/lib/api";
 import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
-
 export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
@@ -128,68 +126,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-(() => {
-  if (window.__agentTrustLoginFallbackInstalled) return;
-  window.__agentTrustLoginFallbackInstalled = true;
-  const apiBase = ${JSON.stringify(API_BASE)};
-  const showError = (message) => {
-    const fallbackError = document.getElementById("login-native-error");
-    if (!fallbackError) return;
-    fallbackError.textContent = message || "Login failed";
-    fallbackError.hidden = false;
-  };
-  const setup = () => {
-    const form = document.getElementById("login-form");
-    const email = document.getElementById("login-email");
-    const password = document.getElementById("login-password");
-    const toggle = document.getElementById("login-password-toggle");
-    const submit = document.getElementById("login-submit");
-    if (!form || !email || !password) return;
-    if (toggle && !toggle.dataset.nativeReady) {
-      toggle.dataset.nativeReady = "true";
-      toggle.addEventListener("click", () => {
-        const visible = password.type === "text";
-        password.type = visible ? "password" : "text";
-        toggle.setAttribute("aria-label", visible ? "Show password" : "Hide password");
-        toggle.setAttribute("aria-pressed", String(!visible));
-      });
-    }
-    if (form.dataset.nativeReady) return;
-    form.dataset.nativeReady = "true";
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const fallbackError = document.getElementById("login-native-error");
-      if (fallbackError) {
-        fallbackError.hidden = true;
-        fallbackError.textContent = "";
-      }
-      submit?.setAttribute("disabled", "true");
-      try {
-        const response = await fetch(apiBase + "/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.value, password: password.value }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.detail || "Login failed");
-        window.localStorage.setItem("access_token", payload.access_token);
-        window.location.assign("/dashboard");
-      } catch (error) {
-        showError(error instanceof Error ? error.message : "Login failed");
-      } finally {
-        submit?.removeAttribute("disabled");
-      }
-    });
-  };
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup, { once: true });
-  else setup();
-})();
-          `,
-        }}
-      />
     </div>
   );
 }

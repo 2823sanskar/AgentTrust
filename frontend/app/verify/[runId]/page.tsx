@@ -12,7 +12,8 @@ import {
   Copy, Check, Link2, Wallet
 } from "lucide-react";
 
-const stellarTxUrl = (tx: string) => `https://stellar.expert/explorer/testnet/tx/${tx}`;
+const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
+const stellarTxUrl = (tx: string) => `https://stellar.expert/explorer/${STELLAR_NETWORK === "mainnet" ? "public" : "testnet"}/tx/${tx}`;
 
 export default function VerifyPage() {
   const params = useParams();

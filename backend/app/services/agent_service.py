@@ -27,6 +27,9 @@ async def create_agent(
         model=data.model,
         system_prompt=data.system_prompt,
         category=data.category,
+        docker_image=data.docker_image,
+        docker_command=data.docker_command,
+        timeout_seconds=data.timeout_seconds,
         status="active",
     )
     db.add(agent)
@@ -152,6 +155,9 @@ def _agent_to_response(agent: Agent) -> AgentResponse:
         model=agent.model,
         system_prompt=agent.system_prompt,
         category=agent.category,
+        docker_image=agent.docker_image,
+        docker_command=agent.docker_command,
+        timeout_seconds=agent.timeout_seconds,
         status=agent.status,
         created_at=agent.created_at,
         developer_name=developer.name if developer else None,

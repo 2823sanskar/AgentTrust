@@ -19,6 +19,9 @@ class RunResponse(BaseModel):
     task: str
     response: Optional[str]
     action_log: Optional[list[dict]] = None
+    container_stdout: Optional[str] = None
+    container_stderr: Optional[str] = None
+    exit_code: Optional[int] = None
     status: str
     execution_time: Optional[float]
     created_at: datetime

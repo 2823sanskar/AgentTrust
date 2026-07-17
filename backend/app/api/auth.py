@@ -2,8 +2,11 @@
 Auth API endpoints: registration, login, current user.
 """
 
-from fastapi import APIRouter, Depends
+import base64
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from stellar_sdk import Keypair
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -45,6 +48,18 @@ async def connect_wallet(
     current_user: User = Depends(get_current_user),
 ):
     """Attach a Stellar wallet public key to the current user."""
+    if data.stellar_wallet_address not in data.signature_message:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Wallet signature message must include the public address")
+    try:
+        keypair = Keypair.from_public_key(data.stellar_wallet_address)
+        try:
+            signature = base64.b64decode(data.signature)
+        except Exception:
+            signature = bytes.fromhex(data.signature)
+        keypair.verify(data.signature_message.encode("utf-8"), signature)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid wallet ownership signature") from exc
+
     current_user.stellar_wallet_address = data.stellar_wallet_address
     current_user.stellar_wallet_network = data.stellar_wallet_network
     db.add(current_user)

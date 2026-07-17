@@ -1,6 +1,6 @@
 // API client with JWT token injection
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/+$/, "");
 
 export function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -38,7 +38,8 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    timeoutMs?: number,
   ): Promise<T> {
     const token = this.getToken();
     const headers: Record<string, string> = {
@@ -51,13 +52,30 @@ class ApiClient {
     }
 
     let response: Response;
+    let controller: AbortController | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const effectiveTimeoutMs = timeoutMs ?? 15_000;
+
+    if (effectiveTimeoutMs) {
+      controller = new AbortController();
+      timeoutId = setTimeout(() => controller!.abort(), effectiveTimeoutMs);
+    }
+
     try {
       response = await fetch(`${API_BASE}${endpoint}`, {
         ...options,
         headers,
+        signal: controller?.signal,
       });
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error(
+          "The request timed out. Docker and browser agent runs can take a few minutes - please try again."
+        );
+      }
       throw new Error("Cannot connect to AgentTrust. Please make sure the backend is running.");
+    } finally {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
     }
 
     if (!response.ok) {
@@ -67,6 +85,7 @@ class ApiClient {
 
     return response.json();
   }
+
 
   // Auth
   async register(data: { name: string; email: string; password: string; role: string }) {
@@ -87,7 +106,12 @@ class ApiClient {
     return this.request<import("@/types").User>("/me");
   }
 
-  async connectWallet(data: { stellar_wallet_address: string; stellar_wallet_network: string }) {
+  async connectWallet(data: {
+    stellar_wallet_address: string;
+    stellar_wallet_network: string;
+    signature_message: string;
+    signature: string;
+  }) {
     return this.request<import("@/types").User>("/me/wallet", {
       method: "PUT",
       body: JSON.stringify(data),
@@ -140,10 +164,11 @@ class ApiClient {
 
   // Executions
   async execute(data: { agent_id: string; task: string }) {
+    // 4-minute timeout: Docker/browser runs can take a while + Stellar anchoring
     return this.request<import("@/types").Run>("/execute", {
       method: "POST",
       body: JSON.stringify(data),
-    });
+    }, 240_000);
   }
 
   async getRun(id: string) {

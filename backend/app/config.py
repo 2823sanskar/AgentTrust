@@ -39,6 +39,19 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> List[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
 
+    def validate_production(self) -> None:
+        if self.DEBUG:
+            return
+        missing = []
+        if self.JWT_SECRET == "change-this-secret-key":
+            missing.append("JWT_SECRET")
+        if not self.STELLAR_SECRET_KEY:
+            missing.append("STELLAR_SECRET_KEY")
+        if self.DATABASE_URL.startswith("postgresql+asyncpg://postgres:password@localhost"):
+            missing.append("DATABASE_URL")
+        if missing:
+            raise RuntimeError(f"Unsafe production config: {', '.join(missing)}")
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

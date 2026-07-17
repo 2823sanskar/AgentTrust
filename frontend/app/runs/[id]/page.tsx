@@ -12,7 +12,8 @@ import {
   Shield, Bot, Calendar, ExternalLink, Copy, Check, Link2, Wallet
 } from "lucide-react";
 
-const stellarTxUrl = (tx: string) => `https://stellar.expert/explorer/testnet/tx/${tx}`;
+const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
+const stellarTxUrl = (tx: string) => `https://stellar.expert/explorer/${STELLAR_NETWORK === "mainnet" ? "public" : "testnet"}/tx/${tx}`;
 
 export default function RunDetailPage() {
   const params = useParams();
@@ -153,6 +154,37 @@ export default function RunDetailPage() {
               <pre className="whitespace-pre-wrap text-sm text-gray-300 font-sans leading-relaxed">{run.response || "No response"}</pre>
             </div>
           </div>
+
+          {(run.exit_code !== null || run.container_stdout || run.container_stderr) && (
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden mb-4">
+              <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
+                <Bot className="h-4 w-4 text-cyan-400" />
+                <span className="text-sm font-medium text-gray-300">Docker Sandbox Evidence</span>
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Exit Code</p>
+                  <code className="text-sm text-white">{run.exit_code ?? "not captured"}</code>
+                </div>
+                {run.container_stdout && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">stdout</p>
+                    <pre className="max-h-64 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-gray-300">
+                      {run.container_stdout}
+                    </pre>
+                  </div>
+                )}
+                {run.container_stderr && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">stderr</p>
+                    <pre className="max-h-64 overflow-auto rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-200">
+                      {run.container_stderr}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Blockchain Proof */}
           <div className={`rounded-xl border overflow-hidden ${

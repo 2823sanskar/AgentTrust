@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api, getErrorMessage } from "@/lib/api";
@@ -10,10 +10,8 @@ import { Navbar } from "@/components/layout/navbar";
 import { motion } from "framer-motion";
 import {
   Send, Bot, Clock, CheckCircle2, XCircle, Hash,
-  FileText, ArrowRight, Loader2, Shield
+  FileText, ArrowRight, Loader2, Shield, Globe, Container
 } from "lucide-react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
 
 export default function ExecuteAgentPage() {
   const params = useParams();
@@ -25,16 +23,25 @@ export default function ExecuteAgentPage() {
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
   const [error, setError] = useState("");
+  const [elapsed, setElapsed] = useState(0);
+  const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     api.getAgent(id).then(setAgent).catch(console.error).finally(() => setLoading(false));
   }, [id]);
+
 
   const handleExecute = async () => {
     if (!task.trim()) return;
     setExecuting(true);
     setError("");
     setResult(null);
+    setElapsed(0);
+    // Start elapsed timer
+    const startTs = Date.now();
+    elapsedRef.current = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTs) / 1000));
+    }, 1000);
     try {
       const run = await api.execute({ agent_id: id, task });
       setResult(run);
@@ -42,80 +49,18 @@ export default function ExecuteAgentPage() {
       setError(getErrorMessage(err, "Execution failed"));
     } finally {
       setExecuting(false);
+      if (elapsedRef.current) {
+        clearInterval(elapsedRef.current);
+        elapsedRef.current = null;
+      }
     }
   };
 
+
   if (loading) {
     return (
-      <div id="execute-native-root" className="min-h-screen bg-[#060612] flex items-center justify-center">
+      <div className="min-h-screen bg-[#060612] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-(() => {
-  const apiBase = ${JSON.stringify(API_BASE)};
-  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-  const token = () => { try { return localStorage.getItem("access_token"); } catch { return null; } };
-  const req = async (path, opts = {}) => {
-    const t = token();
-    const r = await fetch(apiBase + path, {
-      ...opts,
-      headers: { "Content-Type": "application/json", ...(t ? { Authorization: "Bearer " + t } : {}), ...(opts.headers || {}) },
-    });
-    const p = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(p.detail || "Request failed");
-    return p;
-  };
-  const setup = async () => {
-    const root = document.getElementById("execute-native-root");
-    if (!root) return;
-    await new Promise(r => setTimeout(r, 1200));
-    if (document.querySelector("h1")) return;
-    const id = location.pathname.split("/").filter(Boolean).at(-2);
-    let agent;
-    try { agent = await req("/agents/" + encodeURIComponent(id)); }
-    catch { root.innerHTML = '<p class="text-gray-500">Agent not found</p>'; return; }
-    root.className = "min-h-screen bg-[#060612] text-white";
-    root.innerHTML = \`
-      <nav class="border-b border-white/10"><div class="max-w-6xl mx-auto h-16 px-4 flex items-center justify-between"><a href="/" class="font-bold">AgentTrust</a><a href="/agents/\${agent.id}" class="text-cyan-400 text-sm">View Details</a></div></nav>
-      <main class="pt-10 pb-16 px-4 max-w-4xl mx-auto">
-        <div class="rounded-xl border border-white/10 bg-white/[0.02] p-5 mb-6">
-          <h2 class="text-lg font-semibold">\${esc(agent.name)}</h2><p class="text-sm text-gray-500">\${esc(agent.provider)} / \${esc(agent.model)}</p>
-        </div>
-        <h1 class="text-2xl font-bold mb-6">Execute Agent</h1>
-        \${token() ? \`
-          <label class="block text-sm text-gray-300 mb-2">Your Task</label>
-          <textarea id="native-task" rows="6" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white resize-none" placeholder="Describe the task..."></textarea>
-          <button id="native-execute" class="mt-4 px-8 py-3 rounded-xl bg-cyan-500 text-white font-semibold">Execute</button>
-          <div id="native-result" class="mt-6"></div>
-        \` : \`
-          <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-8 text-center"><p class="text-amber-400 mb-4">You need to sign in to execute agents</p><a href="/login" class="inline-flex px-6 py-3 rounded-xl bg-cyan-500 text-white">Sign In</a></div>
-        \`}
-      </main>
-    \`;
-    document.getElementById("native-execute")?.addEventListener("click", async () => {
-      const task = document.getElementById("native-task")?.value?.trim();
-      const out = document.getElementById("native-result");
-      if (!task || !out) return;
-      out.innerHTML = '<p class="text-cyan-400">Executing...</p>';
-      try {
-        const run = await req("/execute", { method: "POST", body: JSON.stringify({ agent_id: id, task }) });
-        out.innerHTML = \`
-          <div class="rounded-xl border border-white/10 bg-white/[0.02] p-5">
-            <p class="text-sm \${run.status === "success" ? "text-emerald-400" : "text-red-400"}">\${esc(run.status)}</p>
-            <pre class="mt-4 whitespace-pre-wrap text-sm text-gray-300 font-sans">\${esc(run.response)}</pre>
-            <a href="/runs/\${run.id}" class="inline-block mt-4 text-cyan-400 text-sm">View Full Details</a>
-          </div>\`;
-      } catch (e) {
-        out.innerHTML = '<p class="text-red-400">' + esc(e.message || "Execution failed") + '</p>';
-      }
-    });
-  };
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup, { once: true }); else setup();
-})();
-            `,
-          }}
-        />
       </div>
     );
   }
@@ -174,7 +119,7 @@ export default function ExecuteAgentPage() {
                 {executing ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    Executing...
+                    Executing... {elapsed > 0 && <span className="opacity-70 text-sm font-normal ml-1">({elapsed}s)</span>}
                   </>
                 ) : (
                   <>
@@ -183,6 +128,37 @@ export default function ExecuteAgentPage() {
                   </>
                 )}
               </button>
+
+              {/* Browser agent hint */}
+              {agent?.provider === "browser" && !executing && !result && (
+                <p className="mt-3 text-xs text-gray-500 flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5" />
+                  Browser agent runs may take up to 2 minutes — the agent browses the web in real time.
+                </p>
+              )}
+
+              {agent?.provider === "external_docker" && !executing && !result && (
+                <p className="mt-3 text-xs text-gray-500 flex items-center gap-1.5">
+                  <Container className="h-3.5 w-3.5" />
+                  Docker sandbox run: {agent.docker_image} with a {agent.timeout_seconds || 60}s timeout.
+                </p>
+              )}
+
+              {/* Live progress hint during execution */}
+              {executing && agent?.provider === "browser" && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-cyan-400/70">
+                  <Globe className="h-3.5 w-3.5 animate-pulse" />
+                  <span>Browsing the web live — please keep this page open…</span>
+                </div>
+              )}
+
+              {executing && agent?.provider === "external_docker" && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-cyan-400/70">
+                  <Container className="h-3.5 w-3.5 animate-pulse" />
+                  <span>Running the external agent inside the local Docker sandbox...</span>
+                </div>
+              )}
+
 
               {/* Error */}
               {error && (

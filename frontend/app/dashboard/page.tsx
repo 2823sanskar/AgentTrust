@@ -20,8 +20,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
-
 export default function DashboardPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -73,113 +71,8 @@ export default function DashboardPage() {
 
   if (authLoading || !isAuthenticated) {
     return (
-      <div id="dashboard-native-root" className="min-h-screen bg-[#060612] flex items-center justify-center">
+      <div className="min-h-screen bg-[#060612] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-(() => {
-  if (window.__agentTrustDashboardFallbackInstalled) return;
-  window.__agentTrustDashboardFallbackInstalled = true;
-  const apiBase = ${JSON.stringify(API_BASE)};
-  const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[char]));
-  const request = async (path, token) => {
-    const response = await fetch(apiBase + path, {
-      headers: { Authorization: "Bearer " + token },
-    });
-    if (!response.ok) throw new Error("Request failed");
-    return response.json();
-  };
-  const render = (root, user, agentsRes, runsRes) => {
-    const agents = (agentsRes.agents || []).filter((agent) => agent.developer_id === user.id);
-    const runs = runsRes.runs || [];
-    const avgTrust = agents.length
-      ? Math.round(agents.reduce((sum, agent) => sum + (agent.trust_score || 0), 0) / agents.length)
-      : 0;
-    const verified = runs.filter((run) => run.stellar_transaction).length;
-    root.className = "min-h-screen bg-[#060612] text-white";
-    root.innerHTML = \`
-      <nav class="border-b border-white/10 bg-[#060612]/95">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <a href="/" class="text-lg font-bold text-white">AgentTrust</a>
-          <div class="flex items-center gap-4 text-sm">
-            <a href="/agents" class="text-gray-400 hover:text-white">Agents</a>
-            <a href="/profile" class="text-gray-400 hover:text-white">Profile</a>
-          </div>
-        </div>
-      </nav>
-      <main class="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div class="mb-8">
-          <h1 class="text-3xl font-bold text-white">Welcome back, \${escapeHtml(user.name)}</h1>
-          <p class="text-gray-500 mt-1">Here's your AgentTrust overview</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-5"><p class="text-sm text-gray-500">My Agents</p><p class="text-3xl font-bold mt-2">\${agents.length}</p></div>
-          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-5"><p class="text-sm text-gray-500">Total Executions</p><p class="text-3xl font-bold mt-2">\${runsRes.total || 0}</p></div>
-          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-5"><p class="text-sm text-gray-500">Avg Trust Score</p><p class="text-3xl font-bold mt-2">\${avgTrust}</p></div>
-          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-5"><p class="text-sm text-gray-500">Verified Runs</p><p class="text-3xl font-bold mt-2">\${verified}</p></div>
-        </div>
-        <section class="mb-10">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-semibold text-white">My Agents</h2>
-            <a href="/agents/register" class="text-sm text-cyan-400 hover:text-cyan-300">Register New</a>
-          </div>
-          \${agents.length ? \`
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              \${agents.map((agent) => \`<a href="/agents/\${agent.id}" class="block rounded-xl border border-white/10 bg-white/[0.03] p-5 hover:border-cyan-500/30"><p class="font-semibold text-white">\${escapeHtml(agent.name)}</p><p class="text-sm text-gray-500 mt-1">\${escapeHtml(agent.provider)} / \${escapeHtml(agent.model)}</p></a>\`).join("")}
-            </div>
-          \` : \`
-            <div class="rounded-xl border border-white/10 bg-white/[0.02] p-12 text-center">
-              <p class="text-gray-500 mb-4">No agents registered yet</p>
-              <a href="/agents/register" class="inline-flex px-6 py-3 rounded-xl bg-cyan-500 text-white font-medium">Register Your First Agent</a>
-            </div>
-          \`}
-        </section>
-        <section>
-          <h2 class="text-xl font-semibold text-white mb-4">Recent Executions</h2>
-          <div class="rounded-xl border border-white/10 bg-white/[0.02] p-12 text-center">
-            <p class="text-gray-500">\${runs.length ? escapeHtml(runs.length + " recent executions loaded") : "No executions yet. Run an agent to see results here."}</p>
-          </div>
-        </section>
-      </main>
-    \`;
-  };
-  const setup = async () => {
-    const root = document.getElementById("dashboard-native-root");
-    if (!root) return;
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    if (document.querySelector("h1")) return;
-    let token = null;
-    try {
-      token = window.localStorage.getItem("access_token");
-    } catch {}
-    if (!token) {
-      window.location.assign("/login");
-      return;
-    }
-    try {
-      const user = await request("/me", token);
-      const [agentsRes, runsRes] = await Promise.all([
-        request("/agents?page_size=50", token),
-        request("/runs?user_id=" + encodeURIComponent(user.id) + "&page_size=10", token),
-      ]);
-      render(root, user, agentsRes, runsRes);
-    } catch {
-      window.location.assign("/login");
-    }
-  };
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup, { once: true });
-  else setup();
-})();
-            `,
-          }}
-        />
       </div>
     );
   }

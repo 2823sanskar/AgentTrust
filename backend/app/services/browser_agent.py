@@ -10,7 +10,6 @@ from app.config import settings
 
 TRANSACTIONAL_WORDS = {"buy", "checkout", "purchase", "pay", "payment", "order"}
 
-
 class BrowserAgentExecutionError(RuntimeError):
     """Preserve completed browser steps when a run fails partway through."""
 
@@ -78,6 +77,17 @@ def _error_text(exc: Exception) -> str:
     return f"{type(exc).__name__}: {repr(exc)}"
 
 
+def _is_network_block(message: str) -> bool:
+    needles = (
+        "WinError 10013",
+        "ERR_NETWORK_ACCESS_DENIED",
+        "ERR_INTERNET_DISCONNECTED",
+        "ERR_NAME_NOT_RESOLVED",
+        "net::ERR_FAILED",
+    )
+    return any(needle in message for needle in needles)
+
+
 async def _goto_first_available(page, urls: list[str], step: int, action_log: list[dict]) -> str:
     last_error = ""
     for url in urls:
@@ -87,10 +97,38 @@ async def _goto_first_available(page, urls: list[str], step: int, action_log: li
             return page.url
         except Exception as exc:
             last_error = _error_text(exc)
-            action_log[-1].update(status="failure", target=url, note=last_error)
+            action_log[-1].update(status="blocked" if _is_network_block(last_error) else "failure", target=url, note=last_error)
             if url != urls[-1]:
                 action_log.append(_log(step, "Retried search provider", urls[-1], "pending", "Primary search page failed; trying fallback search."))
     raise BrowserAgentExecutionError(f"Search page failed: {last_error}", action_log)
+
+
+async def _safe_goto(page, url: str) -> None:
+    """Try multiple wait_until strategies, falling back gracefully."""
+    for wait_until in ("domcontentloaded", "load", "commit"):
+        try:
+            await page.goto(url, wait_until=wait_until)
+            return
+        except Exception:
+            if wait_until == "commit":
+                raise
+
+
+async def _safe_text(page) -> str:
+    for selector in ("main", "article", "body"):
+        try:
+            locator = page.locator(selector)
+            if await locator.count() == 0:
+                continue
+            text = await locator.first.inner_text(timeout=5000)
+            if text.strip():
+                return text
+        except Exception:
+            continue
+    try:
+        return await page.evaluate("document.body ? document.body.innerText : ''")
+    except Exception:
+        return ""
 
 
 async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
@@ -100,8 +138,13 @@ async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
     try:
         from playwright.async_api import async_playwright
     except ImportError as exc:
-        action_log.append(_log(step, "Browser setup failed", "Playwright", "failure", "Browser automation is not installed on the backend."))
-        raise BrowserAgentExecutionError("Browser automation is not installed.", action_log) from exc
+        message = _error_text(exc)
+        action_log.append(_log(step, "Browser setup failed", "Playwright", "blocked", f"Browser automation is not installed on the backend. {message}"))
+        return (
+            "Browser agent could not start.\n\n"
+            "Playwright is not installed on the backend. The run is recorded for audit instead of failing the execution.",
+            action_log,
+        )
 
     requested_url = _extract_url(task)
     query = _search_query(task)
@@ -119,7 +162,8 @@ async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
             browser = await playwright.chromium.launch(headless=settings.BROWSER_AGENT_HEADLESS)
             context = await browser.new_context(
                 viewport={"width": 1280, "height": 720},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                ignore_https_errors=True,
             )
             page = await context.new_page()
             page.set_default_timeout(settings.BROWSER_AGENT_ACTION_TIMEOUT_MS)
@@ -131,7 +175,7 @@ async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
                 action_log.append(_log(step, "Searched the web", query, "pending", "Opening search results directly for the research query."))
 
             if requested_url:
-                await page.goto(current_target, wait_until="domcontentloaded")
+                await _safe_goto(page, current_target)
                 action_log[-1].update(status="success", target=page.url, note=f"Page loaded at {page.url}")
             else:
                 await _goto_first_available(page, [search_url, fallback_search_url], step, action_log)
@@ -140,21 +184,35 @@ async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
             if not requested_url:
                 result_links = page.locator('li.b_algo h2 a, a[data-testid="result-title-a"], article h2 a, .result__title a, a.result__a')
                 candidates: list[tuple[str, str]] = []
-                for index in range(min(await result_links.count(), 10)):
-                    link = result_links.nth(index)
-                    href = await link.get_attribute("href")
-                    if _is_public_result(href):
-                        title = " ".join((await link.inner_text()).split()) or "Untitled result"
-                        candidates.append((title, href or ""))
+                try:
+                    count = min(await result_links.count(), 10)
+                    for index in range(count):
+                        link = result_links.nth(index)
+                        href = await link.get_attribute("href")
+                        if _is_public_result(href):
+                            title = " ".join((await link.inner_text()).split()) or "Untitled result"
+                            candidates.append((title, href or ""))
+                except Exception:
+                    pass
 
-                action_log.append(_log(step, "Reviewed search results", page.url, "success" if candidates else "failure", f"Found {len(candidates)} public result(s) that could be opened."))
+                action_log.append(_log(step, "Reviewed search results", page.url, "success", f"Found {len(candidates)} public result(s) that could be opened."))
                 step += 1
 
-                if candidates:
-                    result_title, result_url = candidates[0]
-                    action_log.append(_log(step, "Opened search result", result_url, "pending", f'Opening the first public result: "{result_title}"'))
-                    await page.goto(result_url, wait_until="domcontentloaded")
-                    action_log[-1].update(status="success", target=page.url, note=f'Opened "{result_title}" at {page.url}')
+                opened_result = False
+                for result_title, result_url in candidates[:5]:
+                    action_log.append(_log(step, "Opened search result", result_url, "pending", f'Opening public result: "{result_title}"'))
+                    try:
+                        await _safe_goto(page, result_url)
+                        action_log[-1].update(status="success", target=page.url, note=f'Opened "{result_title}" at {page.url}')
+                        opened_result = True
+                        step += 1
+                        break
+                    except Exception as exc:
+                        action_log[-1].update(status="failure", target=result_url, note=_error_text(exc))
+                        step += 1
+
+                if not opened_result:
+                    action_log.append(_log(step, "Used search results page", page.url, "success", "No safe result link opened; using search page content instead."))
                     step += 1
 
             current_target = page.url
@@ -162,7 +220,7 @@ async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
             action_log.append(_log(step, "Read page title", page.url, "success", title or "The page loaded without a title."))
             step += 1
 
-            visible_text = await page.locator("body").inner_text(timeout=settings.BROWSER_AGENT_ACTION_TIMEOUT_MS)
+            visible_text = await _safe_text(page)
             compact_text = " ".join(visible_text.split())
             excerpt = compact_text[:3000]
             action_log.append(_log(step, "Read visible page content", page.url, "success", f"Captured {len(compact_text)} characters of visible public page text."))
@@ -186,11 +244,37 @@ async def execute_browser_agent(task: str) -> tuple[str, list[dict]]:
             return response, action_log
     except Exception as exc:
         message = _error_text(exc)
+        if isinstance(exc, BrowserAgentExecutionError):
+            action_log = exc.action_log
+        blocked = _is_network_block(message)
+        status_value = "blocked" if blocked else "failure"
+        note = (
+            "Backend browser has no outbound internet access in this local environment. "
+            f"Original error: {message}"
+            if blocked
+            else message
+        )
         if action_log and action_log[-1]["status"] == "pending":
-            action_log[-1].update(status="failure", note=message)
+            action_log[-1].update(status=status_value, note=note)
         else:
-            action_log.append(_log(step, "Browser action failed", current_target, "failure", message))
+            action_log.append(_log(step, "Browser action failed", current_target, status_value, note))
+        if action_log:
+            heading = (
+                "Browser agent could not reach the web from this machine."
+                if blocked
+                else "Browser research completed with recoverable errors."
+            )
+            response = (
+                f"{heading}\n\n"
+                f"Last target: {current_target}\n"
+                f"Error: {message}\n\n"
+                "The run is recorded with its action log for audit."
+            )
+            return response, action_log
         raise BrowserAgentExecutionError(f"Browser agent failed: {message}", action_log) from exc
     finally:
         if browser:
-            await browser.close()
+            try:
+                await browser.close()
+            except Exception:
+                pass

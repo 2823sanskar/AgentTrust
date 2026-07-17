@@ -30,6 +30,9 @@ def compute_execution_hash(
     execution_time: Optional[float],
     created_at: datetime,
     action_log: Optional[list[dict]] = None,
+    container_stdout: Optional[str] = None,
+    container_stderr: Optional[str] = None,
+    exit_code: Optional[int] = None,
 ) -> str:
     """
     Compute a SHA-256 hash of an execution record.
@@ -52,6 +55,12 @@ def compute_execution_hash(
     }
     if action_log is not None:
         record["action_log"] = action_log
+    if container_stdout is not None:
+        record["container_stdout"] = container_stdout
+    if container_stderr is not None:
+        record["container_stderr"] = container_stderr
+    if exit_code is not None:
+        record["exit_code"] = exit_code
 
     # Deterministic JSON serialization (sorted keys, no whitespace)
     record_json = json.dumps(record, sort_keys=True, cls=UUIDEncoder)

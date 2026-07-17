@@ -36,6 +36,8 @@ class WalletConnectRequest(BaseModel):
         description="Stellar public account ID.",
     )
     stellar_wallet_network: str = Field(default="testnet", max_length=20)
+    signature_message: str = Field(..., min_length=16, max_length=500)
+    signature: str = Field(..., min_length=16, max_length=500)
 
 
 class TokenResponse(BaseModel):

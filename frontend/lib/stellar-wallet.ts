@@ -1,55 +1,69 @@
-type FreighterResult<T> = T | { error?: string; address?: string; network?: string };
+import {
+  getNetwork,
+  isConnected,
+  requestAccess,
+  signMessage,
+} from "@stellar/freighter-api";
 
-interface FreighterApi {
-  isAllowed?: () => Promise<boolean | { isAllowed?: boolean; error?: string }>;
-  setAllowed?: () => Promise<boolean | { error?: string }>;
-  getAddress?: () => Promise<FreighterResult<string>>;
-  getNetwork?: () => Promise<FreighterResult<string>>;
-}
-
-declare global {
-  interface Window {
-    freighterApi?: FreighterApi;
+function readError(error: unknown) {
+  if (!error) return "";
+  if (typeof error === "string") return error;
+  if (typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return error.message;
   }
+  return "Freighter request failed.";
 }
 
-function readResult(value: FreighterResult<string>, key: "address" | "network") {
+function signatureToBase64(value: string | Uint8Array | null) {
+  if (!value) return "";
   if (typeof value === "string") return value;
-  if (value.error) throw new Error(value.error);
-  return value[key] ?? "";
+  let binary = "";
+  value.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
 }
 
-export function isFreighterAvailable() {
-  return typeof window !== "undefined" && Boolean(window.freighterApi);
+function fail(error: unknown, fallback: string): never {
+  throw new Error(readError(error) || fallback);
 }
 
 export async function connectFreighterWallet() {
-  const freighter = window.freighterApi;
-  if (!freighter) {
-    throw new Error("Freighter wallet not found. Install Freighter, then refresh AgentTrust.");
+  const connected = await isConnected();
+  if (connected.error) fail(connected.error, "Freighter wallet not found.");
+  if (!connected.isConnected) {
+    throw new Error("Freighter wallet not found. Install/unlock Freighter in this browser, then refresh AgentTrust.");
   }
 
-  const allowedResult = freighter.isAllowed ? await freighter.isAllowed() : false;
-  const isAllowed = typeof allowedResult === "boolean" ? allowedResult : Boolean(allowedResult.isAllowed);
-  if (!isAllowed && freighter.setAllowed) {
-    const setAllowedResult = await freighter.setAllowed();
-    if (typeof setAllowedResult !== "boolean" && setAllowedResult.error) {
-      throw new Error(setAllowedResult.error);
-    }
-  }
-
-  if (!freighter.getAddress) {
-    throw new Error("Freighter address API not available. Update the Freighter extension.");
-  }
-
-  const address = readResult(await freighter.getAddress(), "address");
+  const access = await requestAccess();
+  if (access.error) fail(access.error, "Freighter access rejected.");
+  const address = access.address;
   if (!/^G[A-Z2-7]{55}$/.test(address)) {
     throw new Error("Freighter returned an invalid Stellar public key.");
   }
 
-  const network = freighter.getNetwork
-    ? readResult(await freighter.getNetwork(), "network") || "testnet"
-    : "testnet";
+  const networkInfo = await getNetwork();
+  if (networkInfo.error) fail(networkInfo.error, "Could not read Freighter network.");
+  const network = (networkInfo.network || "testnet").toLowerCase();
 
-  return { address, network: network.toLowerCase() };
+  const signatureMessage = [
+    "AgentTrust wallet ownership",
+    `Address: ${address}`,
+    `Network: ${network}`,
+    `Time: ${new Date().toISOString()}`,
+  ].join("\n");
+
+  const signed = await signMessage(signatureMessage, {
+    address,
+    networkPassphrase: networkInfo.networkPassphrase,
+  });
+  if (signed.error) fail(signed.error, "Freighter signature rejected.");
+  if (signed.signerAddress !== address) {
+    throw new Error("Freighter signed with a different account.");
+  }
+
+  const signature = signatureToBase64(signed.signedMessage);
+  if (!signature) throw new Error("Freighter did not return a signature.");
+
+  return { address, network, signatureMessage, signature };
 }

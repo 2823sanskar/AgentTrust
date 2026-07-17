@@ -25,6 +25,8 @@ export function StellarWalletButton({ compact = false }: { compact?: boolean }) 
       await api.connectWallet({
         stellar_wallet_address: wallet.address,
         stellar_wallet_network: wallet.network,
+        signature_message: wallet.signatureMessage,
+        signature: wallet.signature,
       });
       await refreshUser();
     } catch (err) {

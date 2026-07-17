@@ -25,6 +25,9 @@ class Run(Base):
     task: Mapped[str] = mapped_column(Text, nullable=False)
     response: Mapped[str | None] = mapped_column(Text, nullable=True)
     action_log: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    container_stdout: Mapped[str | None] = mapped_column(Text, nullable=True)
+    container_stderr: Mapped[str | None] = mapped_column(Text, nullable=True)
+    exit_code: Mapped[int | None] = mapped_column(nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     execution_time: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

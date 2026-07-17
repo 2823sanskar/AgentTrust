@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: startup and shutdown events."""
+    settings.validate_production()
     logger.info(f"Starting {settings.APP_NAME} backend...")
     # Create tables in dev mode
     if settings.DEBUG:

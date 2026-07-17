@@ -21,10 +21,13 @@ export interface Agent {
   developer_id: string;
   name: string;
   description: string | null;
-  provider: "openrouter" | "browser";
+  provider: "openrouter" | "browser" | "external_docker";
   model: string;
   system_prompt: string;
   category: string | null;
+  docker_image: string | null;
+  docker_command: string | null;
+  timeout_seconds: number | null;
   status: "active" | "inactive";
   created_at: string;
   developer_name: string | null;
@@ -43,9 +46,12 @@ export interface AgentListResponse {
 export interface AgentCreate {
   name: string;
   description?: string;
-  provider: "openrouter" | "browser";
+  provider: "openrouter" | "browser" | "external_docker";
   model: string;
   system_prompt: string;
+  docker_image?: string;
+  docker_command?: string;
+  timeout_seconds?: number;
   category?: string;
 }
 
@@ -56,7 +62,10 @@ export interface Run {
   task: string;
   response: string | null;
   action_log: ActionLogEntry[] | null;
-  status: "success" | "failure" | "pending";
+  container_stdout: string | null;
+  container_stderr: string | null;
+  exit_code: number | null;
+  status: "success" | "failure" | "pending" | "blocked";
   execution_time: number | null;
   created_at: string;
   hash: string | null;
@@ -71,7 +80,7 @@ export interface ActionLogEntry {
   step: number;
   action: string;
   target: string;
-  status: "success" | "failure" | "pending";
+  status: "success" | "failure" | "pending" | "blocked";
   note: string;
 }
 

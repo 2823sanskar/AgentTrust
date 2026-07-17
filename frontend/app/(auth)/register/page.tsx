@@ -6,8 +6,6 @@ import Link from "next/link";
 import { getErrorMessage } from "@/lib/api";
 import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight, User, Code2, Users } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
-
 export default function RegisterPage() {
   const { register } = useAuth();
   const [name, setName] = useState("");
@@ -208,100 +206,6 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-(() => {
-  if (window.__agentTrustRegisterFallbackInstalled) return;
-  window.__agentTrustRegisterFallbackInstalled = true;
-  const apiBase = ${JSON.stringify(API_BASE)};
-  let selectedRole = "developer";
-  const showError = (message) => {
-    const fallbackError = document.getElementById("register-native-error");
-    if (!fallbackError) return;
-    fallbackError.textContent = message || "Registration failed";
-    fallbackError.hidden = false;
-  };
-  const setRole = (role) => {
-    selectedRole = role;
-    const developer = document.getElementById("register-role-developer");
-    const user = document.getElementById("register-role-user");
-    developer?.classList.toggle("border-cyan-500/50", role === "developer");
-    developer?.classList.toggle("bg-cyan-500/10", role === "developer");
-    developer?.classList.toggle("text-cyan-400", role === "developer");
-    user?.classList.toggle("border-cyan-500/50", role === "user");
-    user?.classList.toggle("bg-cyan-500/10", role === "user");
-    user?.classList.toggle("text-cyan-400", role === "user");
-  };
-  const setup = () => {
-    const form = document.getElementById("register-form");
-    const name = document.getElementById("register-name");
-    const email = document.getElementById("register-email");
-    const password = document.getElementById("register-password");
-    const confirmPassword = document.getElementById("register-confirm-password");
-    const toggle = document.getElementById("register-password-toggle");
-    const submit = document.getElementById("register-submit");
-    const developer = document.getElementById("register-role-developer");
-    const user = document.getElementById("register-role-user");
-    if (!form || !name || !email || !password || !confirmPassword) return;
-    if (developer && !developer.dataset.nativeReady) {
-      developer.dataset.nativeReady = "true";
-      developer.addEventListener("click", () => setRole("developer"));
-    }
-    if (user && !user.dataset.nativeReady) {
-      user.dataset.nativeReady = "true";
-      user.addEventListener("click", () => setRole("user"));
-    }
-    if (toggle && !toggle.dataset.nativeReady) {
-      toggle.dataset.nativeReady = "true";
-      toggle.addEventListener("click", () => {
-        const visible = password.type === "text";
-        password.type = visible ? "password" : "text";
-        toggle.setAttribute("aria-label", visible ? "Show password" : "Hide password");
-        toggle.setAttribute("aria-pressed", String(!visible));
-      });
-    }
-    if (form.dataset.nativeReady) return;
-    form.dataset.nativeReady = "true";
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const fallbackError = document.getElementById("register-native-error");
-      if (fallbackError) {
-        fallbackError.hidden = true;
-        fallbackError.textContent = "";
-      }
-      if (password.value !== confirmPassword.value) {
-        showError("Passwords do not match");
-        return;
-      }
-      if (password.value.length < 8) {
-        showError("Password must be at least 8 characters");
-        return;
-      }
-      submit?.setAttribute("disabled", "true");
-      try {
-        const response = await fetch(apiBase + "/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.value, email: email.value, password: password.value, role: selectedRole }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.detail || "Registration failed");
-        window.localStorage.setItem("access_token", payload.access_token);
-        window.location.assign("/dashboard");
-      } catch (error) {
-        showError(error instanceof Error ? error.message : "Registration failed");
-      } finally {
-        submit?.removeAttribute("disabled");
-      }
-    });
-  };
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup, { once: true });
-  else setup();
-})();
-          `,
-        }}
-      />
     </div>
   );
 }

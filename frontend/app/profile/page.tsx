@@ -78,6 +78,9 @@ export default function ProfilePage() {
               <Wallet className="h-5 w-5 text-cyan-400" />
               <h2 className="text-lg font-semibold text-white">Stellar Wallet</h2>
             </div>
+            <p className="mb-4 text-sm text-gray-400">
+              Optional: connect Stellar wallet to attach identity to runs.
+            </p>
             {user.stellar_wallet_address ? (
               <div className="space-y-3">
                 <div>
@@ -91,7 +94,7 @@ export default function ProfilePage() {
               </div>
             ) : (
               <p className="text-sm text-gray-400">
-                Connect Freighter to show Stellar identity on your AgentTrust account.
+                Platform proofs still work without a wallet.
               </p>
             )}
           </div>

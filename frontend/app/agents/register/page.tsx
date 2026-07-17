@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { api, getErrorMessage } from "@/lib/api";
@@ -11,33 +11,79 @@ import { Bot, Zap, ArrowRight, AlertCircle } from "lucide-react";
 const providers = [
   { value: "openrouter", label: "OpenRouter (Free)", models: ["openrouter/free"] },
   { value: "browser", label: "Browser Agent", models: ["browser-demo"] },
+  { value: "external_docker", label: "External Docker", models: ["docker-contract-v1"] },
 ];
 
+const emptyDockerCommands = new Set([
+  "",
+  "leave",
+  "leave empty",
+  "blank",
+  "empty",
+  "none",
+  "null",
+  "n/a",
+  "default",
+  "image cmd",
+  "use image cmd",
+  "leave blank",
+  "leave blank to use the image cmd",
+]);
+
+function normalizeDockerCommand(value: string) {
+  const command = value.trim();
+  return emptyDockerCommands.has(command.toLowerCase()) ? undefined : command;
+}
+
 export default function RegisterAgentPage() {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [provider, setProvider] = useState("openrouter");
   const [model, setModel] = useState("openrouter/free");
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [dockerImage, setDockerImage] = useState("clawbot-demo:latest");
+  const [dockerCommand, setDockerCommand] = useState("");
+  const [timeoutSeconds, setTimeoutSeconds] = useState(60);
   const [category, setCategory] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const selectedProvider = providers.find((p) => p.value === provider);
+  const canRegister = isAuthenticated && user?.role === "developer";
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setIsMounted(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!canRegister) {
+      setError(
+        !isAuthenticated
+          ? "Please sign in with a developer account to register an agent."
+          : "Access denied: developer role required."
+      );
+      return;
+    }
     setLoading(true);
     try {
       const agent = await api.createAgent({
         name,
         description: description || undefined,
-        provider: provider as "openrouter" | "browser",
+        provider: provider as "openrouter" | "browser" | "external_docker",
         model,
-        system_prompt: systemPrompt,
+        system_prompt:
+          provider === "external_docker"
+            ? systemPrompt || "External Docker agent using AgentTrust structured execution contract."
+            : systemPrompt,
+        docker_image: provider === "external_docker" ? dockerImage : undefined,
+        docker_command: provider === "external_docker" ? normalizeDockerCommand(dockerCommand) : undefined,
+        timeout_seconds: provider === "external_docker" ? timeoutSeconds : undefined,
         category: category || undefined,
       });
       router.push(`/agents/${agent.id}`);
@@ -48,12 +94,12 @@ export default function RegisterAgentPage() {
     }
   };
 
-  if (!isAuthenticated) {
+  if (!isMounted) {
     return (
       <div className="min-h-screen bg-[#060612]">
         <Navbar />
-        <div className="pt-32 text-center px-4">
-          <p className="text-gray-500">Please sign in to register an agent</p>
+        <div className="pt-32 flex justify-center px-4">
+          <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -68,6 +114,24 @@ export default function RegisterAgentPage() {
           <p className="text-gray-500 mb-8">Configure your agent and start building trust</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {authLoading && (
+              <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-sm text-cyan-300">
+                Checking authentication state...
+              </div>
+            )}
+
+            {!authLoading && !isAuthenticated && (
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm text-amber-300">
+                Please sign in with a developer account to register an agent.
+              </div>
+            )}
+
+            {!authLoading && isAuthenticated && user?.role !== "developer" && (
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm text-amber-300">
+                Access denied: developer role required.
+              </div>
+            )}
+
             {error && (
               <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400 flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -126,12 +190,18 @@ export default function RegisterAgentPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Provider *</label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {providers.map((p) => (
                     <button
                       key={p.value}
                       type="button"
-                      onClick={() => { setProvider(p.value); setModel(p.models[0]); }}
+                      onClick={() => {
+                        setProvider(p.value);
+                        setModel(p.models[0]);
+                        if (p.value === "external_docker" && !systemPrompt) {
+                          setSystemPrompt("External Docker agent using AgentTrust structured execution contract.");
+                        }
+                      }}
                       className={`p-3 rounded-xl border text-sm font-medium transition-all ${
                         provider === p.value
                           ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-400"
@@ -143,6 +213,49 @@ export default function RegisterAgentPage() {
                   ))}
                 </div>
               </div>
+
+              {provider === "external_docker" && (
+                <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Docker Image *</label>
+                    <input
+                      id="agent-docker-image"
+                      type="text"
+                      value={dockerImage}
+                      onChange={(e) => setDockerImage(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all font-mono text-sm"
+                      placeholder="clawbot-demo:latest"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Run Command</label>
+                    <input
+                      id="agent-docker-command"
+                      type="text"
+                      value={dockerCommand}
+                      onChange={(e) => setDockerCommand(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all font-mono text-sm"
+                      placeholder="Optional command override, usually blank"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Timeout Seconds *</label>
+                    <input
+                      id="agent-timeout-seconds"
+                      type="number"
+                      min={1}
+                      max={600}
+                      value={timeoutSeconds}
+                      onChange={(e) => setTimeoutSeconds(Number(e.target.value))}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Model *</label>
@@ -176,7 +289,7 @@ export default function RegisterAgentPage() {
             <button
               id="register-agent-submit"
               type="submit"
-              disabled={loading}
+              disabled={loading || authLoading || !canRegister}
               className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-lg hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-cyan-500/25"
             >
               {loading ? (
