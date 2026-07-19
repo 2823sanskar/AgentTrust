@@ -57,7 +57,7 @@ export function StellarWalletButton({ compact = false }: { compact?: boolean }) 
         <button
           onClick={disconnect}
           disabled={loading}
-          className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300 transition-all hover:bg-emerald-500/15 disabled:opacity-60"
+          className="flex items-center gap-2 rounded-full border border-[#8fcac4] bg-[#d8f3f0] px-3 py-2 text-sm font-medium text-[#004e56] transition-all hover:bg-[#c8ebe7] disabled:opacity-60"
           title="Disconnect Stellar wallet"
         >
           <Wallet className="h-4 w-4" />
@@ -68,14 +68,14 @@ export function StellarWalletButton({ compact = false }: { compact?: boolean }) 
         <button
           onClick={connect}
           disabled={loading}
-          className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-300 transition-all hover:bg-cyan-500/15 disabled:opacity-60"
+          className="flex items-center gap-2 rounded-full border border-[#241c15] bg-[#ffe01b] px-3 py-2 text-sm font-semibold text-[#241c15] transition-all hover:bg-[#f6d90b] disabled:opacity-60"
         >
           <Wallet className="h-4 w-4" />
           {loading ? "Connecting..." : compact ? "Wallet" : "Connect Stellar Wallet"}
         </button>
       )}
       {error && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-red-500/20 bg-[#12070a] p-3 text-xs text-red-200 shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-2xl border border-[#efb4b4] bg-[#fbe7e7] p-3 text-xs text-[#a12a2a] shadow-xl">
           <div className="flex gap-2">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>{error}</span>

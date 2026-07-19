@@ -12,11 +12,12 @@ interface AgentCardProps {
 }
 
 const providerColors: Record<string, string> = {
-  groq: "from-orange-500 to-red-500",
-  openai: "from-emerald-500 to-teal-500",
-  gemini: "from-blue-500 to-purple-500",
-  openrouter: "from-violet-500 to-fuchsia-500",
-  browser: "from-cyan-500 to-sky-500",
+  groq: "bg-[#ffe7c2] text-[#6f3f00] border-[#e7c48c]",
+  openai: "bg-[#d8f3f0] text-[#004e56] border-[#8fcac4]",
+  gemini: "bg-[#dff0ff] text-[#16466f] border-[#a9cfe8]",
+  openrouter: "bg-[#eadff7] text-[#54337a] border-[#cdb8e7]",
+  browser: "bg-[#d8f3f0] text-[#004e56] border-[#8fcac4]",
+  external_docker: "bg-[#ffe01b] text-[#241c15] border-[#241c15]",
 };
 
 const providerLabels: Record<string, string> = {
@@ -25,6 +26,7 @@ const providerLabels: Record<string, string> = {
   gemini: "Gemini",
   openrouter: "OpenRouter",
   browser: "Browser",
+  external_docker: "Docker",
 };
 
 export function AgentCard({ agent, index = 0 }: AgentCardProps) {
@@ -35,10 +37,10 @@ export function AgentCard({ agent, index = 0 }: AgentCardProps) {
       transition={{ duration: 0.4, delay: index * 0.08 }}
     >
       <Link href={`/agents/${agent.id}`} className="block group">
-        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-6 transition-all duration-300 hover:border-cyan-500/30 hover:bg-white/[0.06] hover:shadow-lg hover:shadow-cyan-500/5">
+        <div className="relative overflow-hidden rounded-[22px] border border-[#d9cfba] bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#241c15] hover:shadow-[5px_5px_0_#241c15]">
           {/* Provider badge */}
           <div className="flex items-center justify-between mb-4">
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${providerColors[agent.provider]} text-white`}>
+            <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${providerColors[agent.provider] || "bg-[#f6f1e7] text-[#6b6257] border-[#d9cfba]"}`}>
               <Zap className="h-3 w-3" />
               {providerLabels[agent.provider]}
             </div>
@@ -47,16 +49,16 @@ export function AgentCard({ agent, index = 0 }: AgentCardProps) {
 
           {/* Agent info */}
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-white mb-1 group-hover:text-cyan-400 transition-colors">
+            <h3 className="text-lg font-semibold text-[#241c15] mb-1 group-hover:text-[#007c89] transition-colors">
               {agent.name}
             </h3>
-            <p className="text-sm text-gray-500 line-clamp-2">
+            <p className="text-sm text-[#6b6257] line-clamp-2">
               {agent.description || "No description provided"}
             </p>
           </div>
 
           {/* Stats */}
-          <div className="flex items-center gap-4 text-xs text-gray-500">
+          <div className="flex items-center gap-4 text-xs text-[#6b6257]">
             <div className="flex items-center gap-1">
               <Bot className="h-3.5 w-3.5" />
               <span>{agent.model}</span>
@@ -69,7 +71,7 @@ export function AgentCard({ agent, index = 0 }: AgentCardProps) {
 
           {/* Hover arrow */}
           <div className="absolute bottom-6 right-6 opacity-0 transform translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-            <ArrowRight className="h-5 w-5 text-cyan-400" />
+            <ArrowRight className="h-5 w-5 text-[#241c15]" />
           </div>
         </div>
       </Link>

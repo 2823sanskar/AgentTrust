@@ -13,28 +13,28 @@ interface StatCardProps {
 
 const colorMap = {
   cyan: {
-    bg: "from-cyan-500/10 to-blue-500/10",
-    border: "border-cyan-500/20",
-    icon: "text-cyan-400",
-    glow: "shadow-cyan-500/10",
+    bg: "from-[#d8f3f0] to-white",
+    border: "border-[#b7ddd8]",
+    icon: "text-[#007c89]",
+    glow: "shadow-black/5",
   },
   emerald: {
-    bg: "from-emerald-500/10 to-teal-500/10",
-    border: "border-emerald-500/20",
-    icon: "text-emerald-400",
-    glow: "shadow-emerald-500/10",
+    bg: "from-[#e4f6d7] to-white",
+    border: "border-[#bfdca6]",
+    icon: "text-[#2f6f32]",
+    glow: "shadow-black/5",
   },
   purple: {
-    bg: "from-purple-500/10 to-pink-500/10",
-    border: "border-purple-500/20",
-    icon: "text-purple-400",
-    glow: "shadow-purple-500/10",
+    bg: "from-[#fbeeca] to-white",
+    border: "border-[#e6d5a7]",
+    icon: "text-[#8b5e00]",
+    glow: "shadow-black/5",
   },
   amber: {
-    bg: "from-amber-500/10 to-orange-500/10",
-    border: "border-amber-500/20",
-    icon: "text-amber-400",
-    glow: "shadow-amber-500/10",
+    bg: "from-[#ffe01b]/40 to-white",
+    border: "border-[#e5c917]",
+    icon: "text-[#241c15]",
+    glow: "shadow-black/5",
   },
 };
 
@@ -46,24 +46,22 @@ export function StatCard({ label, value, icon: Icon, trend, color = "cyan" }: St
       initial={false}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4 }}
-      className={`relative overflow-hidden rounded-xl border ${c.border} bg-gradient-to-br ${c.bg} p-6 shadow-lg ${c.glow}`}
+      className={`relative overflow-hidden rounded-[22px] border ${c.border} bg-gradient-to-br ${c.bg} p-6 shadow-sm ${c.glow}`}
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-gray-400 mb-1">{label}</p>
-          <p className="text-3xl font-bold text-white">{value}</p>
+          <p className="text-sm text-[#6b6257] mb-1">{label}</p>
+          <p className="text-3xl font-semibold text-[#241c15]">{value}</p>
           {trend && (
-            <p className="text-xs text-emerald-400 mt-2 flex items-center gap-1">
+            <p className="text-xs text-[#007c89] mt-2 flex items-center gap-1">
               {trend}
             </p>
           )}
         </div>
-        <div className={`p-3 rounded-lg bg-white/5 ${c.icon}`}>
+        <div className={`p-3 rounded-2xl bg-white/80 border border-black/10 ${c.icon}`}>
           <Icon className="h-6 w-6" />
         </div>
       </div>
-      {/* Decorative gradient */}
-      <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-gradient-to-br from-white/5 to-transparent blur-xl" />
     </motion.div>
   );
 }

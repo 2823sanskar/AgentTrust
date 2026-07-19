@@ -59,39 +59,39 @@ export default function ExecuteAgentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#060612] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#f6f1e7] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#8fcac4] border-t-[#007c89] rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#060612]">
+    <div className="min-h-screen bg-[#f6f1e7]">
       <Navbar />
       <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
         <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
           {/* Agent mini card */}
           {agent && (
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 mb-6 flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
-                <Bot className="h-6 w-6 text-cyan-400" />
+            <div className="rounded-[20px] border border-[#d9cfba] bg-white p-5 mb-6 flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[20px] bg-gradient-to-br from-[#ffe01b]/40 to-white">
+                <Bot className="h-6 w-6 text-[#007c89]" />
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-semibold text-white">{agent.name}</h2>
-                <p className="text-sm text-gray-500">{agent.provider} / {agent.model}</p>
+                <h2 className="text-lg font-semibold text-[#241c15]">{agent.name}</h2>
+                <p className="text-sm text-[#6b6257]">{agent.provider} / {agent.model}</p>
               </div>
-              <Link href={`/agents/${agent.id}`} className="text-sm text-cyan-400 hover:text-cyan-300">
+              <Link href={`/agents/${agent.id}`} className="text-sm text-[#007c89] hover:text-[#004e56]">
                 View Details
               </Link>
             </div>
           )}
 
-          <h1 className="text-2xl font-bold text-white mb-6">Execute Agent</h1>
+          <h1 className="text-2xl font-bold text-[#241c15] mb-6">Execute Agent</h1>
 
           {!isAuthenticated ? (
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-8 text-center">
-              <p className="text-amber-400 mb-4">You need to sign in to execute agents</p>
-              <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium">
+            <div className="rounded-[20px] border border-[#e5c917] bg-amber-500/5 p-8 text-center">
+              <p className="text-[#8b5e00] mb-4">You need to sign in to execute agents</p>
+              <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 rounded-[20px] bg-[#ffe01b] border border-[#241c15] text-[#241c15] font-medium">
                 Sign In <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -99,14 +99,14 @@ export default function ExecuteAgentPage() {
             <>
               {/* Task input */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-300 mb-2">Your Task</label>
+                <label className="block text-sm font-medium text-[#403b33] mb-2">Your Task</label>
                 <textarea
                   id="task-input"
                   value={task}
                   onChange={(e) => setTask(e.target.value)}
                   rows={6}
                   placeholder="Describe the task you want the agent to perform..."
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all resize-none"
+                  className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all resize-none"
                 />
               </div>
 
@@ -114,7 +114,7 @@ export default function ExecuteAgentPage() {
                 id="execute-btn"
                 onClick={handleExecute}
                 disabled={executing || !task.trim()}
-                className="flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-cyan-500/25"
+                className="flex items-center gap-2 px-8 py-3 rounded-[20px] bg-[#ffe01b] border border-[#241c15] text-[#241c15] font-semibold hover:bg-[#f6d90b] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-black/10"
               >
                 {executing ? (
                   <>
@@ -131,14 +131,14 @@ export default function ExecuteAgentPage() {
 
               {/* Browser agent hint */}
               {agent?.provider === "browser" && !executing && !result && (
-                <p className="mt-3 text-xs text-gray-500 flex items-center gap-1.5">
+                <p className="mt-3 text-xs text-[#6b6257] flex items-center gap-1.5">
                   <Globe className="h-3.5 w-3.5" />
-                  Browser agent runs may take up to 2 minutes — the agent browses the web in real time.
+                  Browser agent runs may take up to 2 minutes - the agent browses the web in real time.
                 </p>
               )}
 
               {agent?.provider === "external_docker" && !executing && !result && (
-                <p className="mt-3 text-xs text-gray-500 flex items-center gap-1.5">
+                <p className="mt-3 text-xs text-[#6b6257] flex items-center gap-1.5">
                   <Container className="h-3.5 w-3.5" />
                   Docker sandbox run: {agent.docker_image} with a {agent.timeout_seconds || 60}s timeout.
                 </p>
@@ -146,14 +146,14 @@ export default function ExecuteAgentPage() {
 
               {/* Live progress hint during execution */}
               {executing && agent?.provider === "browser" && (
-                <div className="mt-3 flex items-center gap-2 text-xs text-cyan-400/70">
+                <div className="mt-3 flex items-center gap-2 text-xs text-[#007c89]/70">
                   <Globe className="h-3.5 w-3.5 animate-pulse" />
-                  <span>Browsing the web live — please keep this page open…</span>
+                  <span>Browsing the web live - please keep this page open…</span>
                 </div>
               )}
 
               {executing && agent?.provider === "external_docker" && (
-                <div className="mt-3 flex items-center gap-2 text-xs text-cyan-400/70">
+                <div className="mt-3 flex items-center gap-2 text-xs text-[#007c89]/70">
                   <Container className="h-3.5 w-3.5 animate-pulse" />
                   <span>Running the external agent inside the local Docker sandbox...</span>
                 </div>
@@ -162,7 +162,7 @@ export default function ExecuteAgentPage() {
 
               {/* Error */}
               {error && (
-                <div className="mt-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <div className="mt-6 p-4 rounded-[20px] bg-[#fbe7e7] border border-[#efb4b4] text-[#a12a2a] text-sm">
                   {error}
                 </div>
               )}
@@ -176,63 +176,63 @@ export default function ExecuteAgentPage() {
                 >
                   {/* Execution metrics */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-center">
+                    <div className="rounded-[20px] border border-[#d9cfba] bg-white p-4 text-center">
                       <span className={`inline-flex items-center gap-1 text-sm font-medium ${
-                        result.status === "success" ? "text-emerald-400" : "text-red-400"
+                        result.status === "success" ? "text-[#007c89]" : "text-[#a12a2a]"
                       }`}>
                         {result.status === "success" ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                         {result.status}
                       </span>
                     </div>
-                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-center">
-                      <span className="text-sm text-gray-400 flex items-center justify-center gap-1">
+                    <div className="rounded-[20px] border border-[#d9cfba] bg-white p-4 text-center">
+                      <span className="text-sm text-[#6b6257] flex items-center justify-center gap-1">
                         <Clock className="h-4 w-4" /> {result.execution_time?.toFixed(2)}s
                       </span>
                     </div>
-                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-center">
-                      <span className="text-sm text-gray-400 flex items-center justify-center gap-1 font-mono">
+                    <div className="rounded-[20px] border border-[#d9cfba] bg-white p-4 text-center">
+                      <span className="text-sm text-[#6b6257] flex items-center justify-center gap-1 font-mono">
                         <Hash className="h-4 w-4" /> {result.hash?.slice(0, 12)}...
                       </span>
                     </div>
-                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-center">
+                    <div className="rounded-[20px] border border-[#d9cfba] bg-white p-4 text-center">
                       {result.stellar_transaction ? (
-                        <span className="text-sm text-cyan-400 flex items-center justify-center gap-1">
+                        <span className="text-sm text-[#007c89] flex items-center justify-center gap-1">
                           <Shield className="h-4 w-4" /> On-chain
                         </span>
                       ) : (
-                        <span className="text-sm text-gray-600">Pending anchor</span>
+                        <span className="text-sm text-[#8a8175]">Pending anchor</span>
                       )}
                     </div>
                   </div>
 
                   {/* Action Log */}
                   {result.action_log && result.action_log.length > 0 && (
-                    <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
-                      <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
-                        <Bot className="h-4 w-4 text-cyan-400" />
-                        <span className="text-sm font-medium text-gray-300">Recorded Actions</span>
+                    <div className="rounded-[20px] border border-[#d9cfba] bg-white overflow-hidden">
+                      <div className="px-5 py-3 border-b border-[#e7ddc6] flex items-center gap-2">
+                        <Bot className="h-4 w-4 text-[#007c89]" />
+                        <span className="text-sm font-medium text-[#403b33]">Recorded Actions</span>
                       </div>
                       <div className="p-5 space-y-3">
                         {result.action_log.map((item, index) => (
-                          <div key={`${item.step}-${item.action}-${index}`} className="flex gap-3 rounded-lg bg-white/[0.02] p-3">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/10 text-xs text-cyan-400">
+                          <div key={`${item.step}-${item.action}-${index}`} className="flex gap-3 rounded-lg bg-white p-3">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8f3f0] text-xs text-[#007c89]">
                               {item.step}
                             </span>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-medium text-white">{item.action}</p>
+                                <p className="text-sm font-medium text-[#241c15]">{item.action}</p>
                                 <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${
                                   item.status === "success"
-                                    ? "bg-emerald-500/10 text-emerald-400"
+                                    ? "bg-[#d8f3f0] text-[#007c89]"
                                     : item.status === "failure"
-                                      ? "bg-red-500/10 text-red-400"
-                                      : "bg-amber-500/10 text-amber-400"
+                                      ? "bg-[#fbe7e7] text-[#a12a2a]"
+                                      : "bg-[#fff4c4] text-[#8b5e00]"
                                 }`}>
                                   {item.status}
                                 </span>
                               </div>
-                              <p className="truncate text-xs text-gray-400">{item.target}</p>
-                              <p className="text-xs text-gray-500">{item.note}</p>
+                              <p className="truncate text-xs text-[#6b6257]">{item.target}</p>
+                              <p className="text-xs text-[#6b6257]">{item.note}</p>
                             </div>
                           </div>
                         ))}
@@ -241,13 +241,13 @@ export default function ExecuteAgentPage() {
                   )}
 
                   {/* Response */}
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
-                    <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-cyan-400" />
-                      <span className="text-sm font-medium text-gray-300">Agent Response</span>
+                  <div className="rounded-[20px] border border-[#d9cfba] bg-white overflow-hidden">
+                    <div className="px-5 py-3 border-b border-[#e7ddc6] flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-[#007c89]" />
+                      <span className="text-sm font-medium text-[#403b33]">Agent Response</span>
                     </div>
                     <div className="p-5">
-                      <pre className="whitespace-pre-wrap text-sm text-gray-300 leading-relaxed font-sans">
+                      <pre className="whitespace-pre-wrap text-sm text-[#403b33] leading-relaxed font-sans">
                         {result.response}
                       </pre>
                     </div>
@@ -257,13 +257,13 @@ export default function ExecuteAgentPage() {
                   <div className="flex gap-3">
                     <Link
                       href={`/runs/${result.id}`}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/10 text-sm text-gray-400 hover:text-white hover:border-white/20 transition-all"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-[20px] border border-[#d9cfba] text-sm text-[#6b6257] hover:text-[#241c15] hover:border-[#241c15] transition-all"
                     >
                       View Full Details <ArrowRight className="h-4 w-4" />
                     </Link>
                     <Link
                       href={`/verify/${result.id}`}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-cyan-500/20 text-sm text-cyan-400 hover:bg-cyan-500/5 transition-all"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-[20px] border border-[#8fcac4] text-sm text-[#007c89] hover:bg-[#d8f3f0] transition-all"
                     >
                       <Shield className="h-4 w-4" /> Verify Execution
                     </Link>

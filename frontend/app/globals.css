@@ -2,23 +2,23 @@
 
 :root {
   /* ─── Core Palette ─── */
-  --background: #060612;
-  --background-secondary: #0a0a1a;
-  --foreground: #ffffff;
-  --foreground-muted: #94a3b8;
-  --foreground-subtle: #475569;
+  --background: #f6f1e7;
+  --background-secondary: #fbf7ee;
+  --foreground: #241c15;
+  --foreground-muted: #6b6257;
+  --foreground-subtle: #8a8175;
 
   /* ─── Accent Colors ─── */
-  --accent-cyan: #22d3ee;
-  --accent-blue: #3b82f6;
-  --accent-purple: #a855f7;
-  --accent-emerald: #34d399;
-  --accent-amber: #fbbf24;
-  --accent-red: #f87171;
+  --accent-cyan: #007c89;
+  --accent-blue: #004e56;
+  --accent-purple: #8b5e00;
+  --accent-emerald: #2f6f32;
+  --accent-amber: #ffe01b;
+  --accent-red: #a12a2a;
 
   /* ─── Gradient ─── */
-  --gradient-primary: linear-gradient(135deg, #06b6d4, #3b82f6);
-  --gradient-hero: linear-gradient(135deg, #22d3ee, #3b82f6, #a855f7);
+  --gradient-primary: linear-gradient(135deg, #ffe01b, #ffffff);
+  --gradient-hero: linear-gradient(135deg, #ffe01b, #ffffff, #d8f3f0);
 
   /* ─── Surface / Glass ─── */
   --surface-1: rgba(255, 255, 255, 0.02);

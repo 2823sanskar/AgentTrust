@@ -21,10 +21,10 @@ export function TrustBadge({ score, size = "md", showLabel = true }: TrustBadgeP
 
   // Color based on score
   const getColor = (score: number) => {
-    if (score >= 80) return { stroke: "#22d3ee", glow: "shadow-cyan-500/30" };
-    if (score >= 60) return { stroke: "#34d399", glow: "shadow-emerald-500/30" };
-    if (score >= 40) return { stroke: "#fbbf24", glow: "shadow-amber-500/30" };
-    return { stroke: "#f87171", glow: "shadow-red-500/30" };
+    if (score >= 80) return { stroke: "#007c89", glow: "shadow-black/10" };
+    if (score >= 60) return { stroke: "#2f6f32", glow: "shadow-black/10" };
+    if (score >= 40) return { stroke: "#8b5e00", glow: "shadow-black/10" };
+    return { stroke: "#a12a2a", glow: "shadow-black/10" };
   };
 
   const color = getColor(score);
@@ -41,7 +41,7 @@ export function TrustBadge({ score, size = "md", showLabel = true }: TrustBadgeP
             cy={center}
             r={s.radius}
             fill="none"
-            stroke="rgba(255,255,255,0.08)"
+            stroke="#e7ddc6"
             strokeWidth={s.stroke}
           />
           {/* Progress circle */}
@@ -61,13 +61,13 @@ export function TrustBadge({ score, size = "md", showLabel = true }: TrustBadgeP
         </svg>
         {/* Score text */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className={`${s.text} font-bold text-white`}>
+          <span className={`${s.text} font-bold text-[#241c15]`}>
             {Math.round(score)}
           </span>
         </div>
       </div>
       {showLabel && (
-        <span className="text-[10px] uppercase tracking-widest text-gray-500 font-medium">
+        <span className="text-[10px] uppercase tracking-widest text-[#6b6257] font-medium">
           Trust Score
         </span>
       )}

@@ -12,206 +12,163 @@ import {
   ArrowRight,
   Link2,
   Bot,
+  CheckCircle2,
 } from "lucide-react";
 
 const features = [
   {
     icon: Lock,
-    title: "Immutable Execution Logs",
-    description: "Every AI execution is recorded with a SHA-256 hash, making tampering mathematically detectable.",
-    color: "from-cyan-500 to-blue-500",
+    title: "Execution evidence",
+    description: "Capture stdout, stderr, timing, exit code, final output, and action logs for every agent run.",
   },
   {
     icon: Link2,
-    title: "Blockchain-Anchored Proof",
-    description: "Execution hashes are submitted to the Stellar network, creating permanent, independently verifiable proof.",
-    color: "from-purple-500 to-pink-500",
+    title: "Stellar proof",
+    description: "Anchor execution hashes on Stellar Testnet so every trust claim can be independently checked.",
   },
   {
     icon: BarChart3,
-    title: "Transparent Trust Scores",
-    description: "Trust scores are computed from real execution data — success rates, latency, and verified runs.",
-    color: "from-emerald-500 to-teal-500",
+    title: "Trust scoring",
+    description: "Turn verified execution history into a clear score operators can scan quickly.",
   },
   {
     icon: Zap,
-    title: "Multi-Provider Support",
-    description: "Register agents powered by free OpenRouter models and compare their verified executions.",
-    color: "from-amber-500 to-orange-500",
+    title: "Docker sandbox",
+    description: "Run external Docker agents through a local or cloud worker without changing the core app flow.",
   },
 ];
 
 const steps = [
-  { step: "01", title: "Register Your Agent", description: "Define your agent's provider, model, and system prompt.", icon: Bot },
-  { step: "02", title: "Execute Through Platform", description: "Users submit tasks, and your agent responds in real-time.", icon: Zap },
-  { step: "03", title: "Hash & Anchor", description: "Each execution is hashed (SHA-256) and anchored on Stellar.", icon: Lock },
-  { step: "04", title: "Build Trust", description: "Your trust score grows with every verified, successful execution.", icon: Shield },
+  { step: "01", title: "Register", description: "Add agent metadata, image, command, and timeout.", icon: Bot },
+  { step: "02", title: "Execute", description: "Submit a task and route it through the sandbox worker.", icon: Zap },
+  { step: "03", title: "Record", description: "Persist telemetry and hash the normalized evidence.", icon: Lock },
+  { step: "04", title: "Verify", description: "Open the run proof and Stellar Testnet transaction.", icon: Shield },
 ];
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#060612] text-white">
+    <div className="min-h-screen bg-[#f6f1e7] text-[#241c15]">
       <Navbar />
 
-      {/* Hero */}
-      <section className="relative pt-32 pb-20 px-4 overflow-hidden">
-        {/* Background effects */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-radial from-cyan-500/10 via-blue-500/5 to-transparent rounded-full blur-[100px]" />
-          <div className="absolute top-40 left-1/4 w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[80px]" />
-        </div>
-
-        <div className="relative max-w-5xl mx-auto text-center">
-          <motion.div
-            initial={false}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-400 text-sm font-medium mb-6">
+      <section className="px-4 pb-16 pt-28">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1fr_480px]">
+          <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#241c15] bg-[#ffe01b] px-4 py-2 text-sm font-semibold">
               <Shield className="h-4 w-4" />
-              Powered by Stellar Blockchain
+              Stellar Testnet verification layer
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-6">
-              <span className="bg-gradient-to-r from-white via-white to-gray-400 bg-clip-text text-transparent">
-                Verified Trust for
-              </span>
-              <br />
-              <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-                AI Agents
-              </span>
+            <h1 className="mb-6 max-w-3xl text-5xl font-semibold leading-[1.02] text-[#241c15] md:text-7xl">
+              Verify AI agents before you trust them.
             </h1>
 
-            <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-              Every execution logged, hashed, and anchored on-chain. AgentTrust replaces
-              marketing claims with cryptographic proof.
+            <p className="mb-8 max-w-2xl text-lg leading-relaxed text-[#403b33] md:text-xl">
+              AgentTrust records Docker agent executions, scores trust, hashes evidence, and anchors proof on Stellar.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/register"
-                className="flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-lg hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#241c15] bg-[#241c15] px-7 py-3 text-base font-semibold text-white shadow-[0_4px_0_#d5c7aa] transition-transform hover:-translate-y-0.5"
               >
                 Get Started
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
                 href="/agents"
-                className="flex items-center gap-2 px-8 py-4 rounded-xl border border-white/10 text-gray-300 font-semibold text-lg hover:bg-white/5 hover:border-white/20 transition-all"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#241c15] bg-white px-7 py-3 text-base font-semibold text-[#241c15] transition-colors hover:bg-[#ffe01b]"
               >
-                Explore Agents
+                Explore agents
               </Link>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={false}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-[28px] border border-[#241c15] bg-white p-5 shadow-[10px_10px_0_#241c15]"
+          >
+            <div className="mb-5 flex items-center justify-between border-b border-[#e7ddc6] pb-4">
+              <div>
+                <p className="text-sm font-semibold">Latest sandbox run</p>
+                <p className="text-xs text-[#6b6257]">external_docker / aws_staging</p>
+              </div>
+              <span className="rounded-full border border-[#007c89] bg-[#d8f3f0] px-3 py-1 text-xs font-semibold text-[#004e56]">
+                Verified
+              </span>
+            </div>
+            <div className="space-y-3">
+              {[
+                ["route", "cloud_sandbox"],
+                ["exit_code", "0"],
+                ["hash", "sha256:8a7f...c31b"],
+                ["stellar", "testnet anchored"],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between rounded-[24px] bg-[#f6f1e7] px-4 py-3">
+                  <span className="font-mono text-xs text-[#6b6257]">{label}</span>
+                  <span className="font-mono text-sm text-[#241c15]">{value}</span>
+                </div>
+              ))}
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-24 px-4">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={false}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Why AgentTrust?
-            </h2>
-            <p className="text-gray-500 max-w-xl mx-auto">
-              Stop trusting marketing. Start trusting math.
-            </p>
-          </motion.div>
+      <section className="px-4 py-16">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <h2 className="text-4xl font-semibold text-[#241c15]">Proof workflow</h2>
+              <p className="mt-2 max-w-xl text-[#6b6257]">A clean verification loop for developer teams and agent operators.</p>
+            </div>
+            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#241c15] bg-[#ffe01b] px-4 py-2 text-sm font-semibold">
+              <CheckCircle2 className="h-4 w-4" />
+              MVP ready
+            </span>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {features.map((feature, i) => (
-              <motion.div
-                key={feature.title}
-                initial={false}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] p-8 hover:border-white/20 transition-all duration-300"
-              >
-                <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${feature.color} mb-4`}>
-                  <feature.icon className="h-6 w-6 text-white" />
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+            {features.map((feature) => (
+              <div key={feature.title} className="rounded-[22px] border border-[#d9cfba] bg-white p-6 shadow-sm">
+                <div className="mb-5 inline-flex rounded-[24px] bg-[#ffe01b] p-3 text-[#241c15]">
+                  <feature.icon className="h-6 w-6" />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
-                <p className="text-gray-500 leading-relaxed">{feature.description}</p>
-                <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-gradient-to-br from-white/[0.02] to-transparent blur-xl group-hover:scale-150 transition-transform duration-500" />
-              </motion.div>
+                <h3 className="mb-2 text-xl font-semibold text-[#241c15]">{feature.title}</h3>
+                <p className="text-sm leading-relaxed text-[#6b6257]">{feature.description}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-24 px-4 bg-white/[0.01]">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial={false}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              How It Works
-            </h2>
-            <p className="text-gray-500">From registration to verified reputation in four steps</p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {steps.map((item, i) => (
-              <motion.div
-                key={item.step}
-                initial={false}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.15 }}
-                className="relative text-center p-6"
-              >
-                <div className="text-5xl font-bold text-white/5 mb-4">{item.step}</div>
-                <div className="inline-flex p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 mb-4">
-                  <item.icon className="h-6 w-6 text-cyan-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">{item.title}</h3>
-                <p className="text-sm text-gray-500">{item.description}</p>
-                {i < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-16 -right-3 text-white/10">
-                    <ArrowRight className="h-6 w-6" />
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </div>
+      <section className="border-y border-[#dfd5bd] bg-[#fbf7ee] px-4 py-16">
+        <div className="mx-auto grid max-w-7xl gap-5 md:grid-cols-4">
+          {steps.map((item) => (
+            <div key={item.step} className="rounded-[22px] bg-[#f6f1e7] p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <span className="text-4xl font-semibold text-[#d9cfba]">{item.step}</span>
+                <item.icon className="h-6 w-6 text-[#007c89]" />
+              </div>
+              <h3 className="mb-2 text-lg font-semibold text-[#241c15]">{item.title}</h3>
+              <p className="text-sm text-[#6b6257]">{item.description}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-24 px-4">
-        <div className="max-w-3xl mx-auto text-center">
-          <motion.div
-            initial={false}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-purple-500/10 p-12"
+      <section className="px-4 py-20">
+        <div className="mx-auto max-w-4xl rounded-[28px] border border-[#241c15] bg-[#ffe01b] p-10 text-center shadow-[8px_8px_0_#241c15]">
+          <h2 className="mb-4 text-4xl font-semibold text-[#241c15]">Start verifying agent behavior.</h2>
+          <p className="mx-auto mb-8 max-w-2xl text-[#403b33]">
+            Register an agent, run a sandbox task, and open the proof page with the execution hash and Stellar transaction.
+          </p>
+          <Link
+            href="/register"
+            className="inline-flex items-center gap-2 rounded-full border border-[#241c15] bg-[#241c15] px-8 py-3 font-semibold text-white"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Ready to Build Trust?
-            </h2>
-            <p className="text-gray-400 mb-8 max-w-lg mx-auto">
-              Register your AI agent today and start building a reputation backed by
-              cryptographic proof — not promises.
-            </p>
-            <Link
-              href="/register"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-lg hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/25"
-            >
-              Get Started Free
-              <ArrowRight className="h-5 w-5" />
-            </Link>
-          </motion.div>
+            Get Started Free
+            <ArrowRight className="h-5 w-5" />
+          </Link>
         </div>
       </section>
 

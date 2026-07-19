@@ -38,40 +38,40 @@ export default function CloudStatusBar() {
   }, [isMounted]);
 
   if (!isMounted) {
-    return <div className="h-16 rounded-xl border border-gray-800 bg-[#0b112c] animate-pulse" />;
+    return <div className="h-16 rounded-[22px] border border-[#d9cfba] bg-white animate-pulse" />;
   }
 
   return (
-    <div className="p-4 rounded-xl border border-gray-800 bg-[#0b112c] text-xs flex items-center justify-between gap-4">
+    <div className="p-4 rounded-[22px] border border-[#d9cfba] bg-white text-xs flex items-center justify-between gap-4 shadow-sm">
       <div className="flex items-center gap-2">
         {status === "checking" && (
           <>
-            <RefreshCw className="h-4 w-4 text-blue-400 animate-spin" />
-            <span className="text-gray-400 font-medium">Interrogating remote pipeline link status...</span>
+            <RefreshCw className="h-4 w-4 text-[#007c89] animate-spin" />
+            <span className="text-[#6b6257] font-medium">Checking sandbox route...</span>
           </>
         )}
         {status === "cloud" && (
           <>
-            <Cloud className="h-4 w-4 text-emerald-400" />
+            <Cloud className="h-4 w-4 text-[#007c89]" />
             <div>
-              <span className="text-white font-semibold block">AWS Cloud Sandbox: Active</span>
-              <span className="text-[10px] text-gray-400 font-mono">Routing through high-speed Nginx edge proxy</span>
+              <span className="text-[#241c15] font-semibold block">AWS Cloud Sandbox: Active</span>
+              <span className="text-[10px] text-[#6b6257] font-mono">Nginx edge proxy / Docker worker</span>
             </div>
           </>
         )}
         {status === "fallback" && (
           <>
-            <CloudOff className="h-4 w-4 text-amber-400" />
+            <CloudOff className="h-4 w-4 text-[#8b5e00]" />
             <div>
-              <span className="text-amber-400 font-semibold block">Fail-Safe Route Engaged: Local Mode</span>
-              <span className="text-[10px] text-gray-400">AWS cluster unreachable. Running isolated fallback loop.</span>
+              <span className="text-[#8b5e00] font-semibold block">Local Mode Active</span>
+              <span className="text-[10px] text-[#6b6257]">AWS cluster unreachable. Running isolated fallback loop.</span>
             </div>
           </>
         )}
       </div>
 
       {status === "cloud" && latency !== null && (
-        <span className="bg-[#101b37] text-emerald-400 px-2 py-1 rounded border border-gray-700 font-mono text-[10px]">
+        <span className="bg-[#d8f3f0] text-[#004e56] px-2.5 py-1 rounded-full border border-[#8fcac4] font-mono text-[10px]">
           Ping: {latency}ms
         </span>
       )}

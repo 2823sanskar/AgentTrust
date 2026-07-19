@@ -96,56 +96,56 @@ export default function RegisterAgentPage() {
 
   if (!isMounted) {
     return (
-      <div className="min-h-screen bg-[#060612]">
+      <div className="min-h-screen bg-[#f6f1e7]">
         <Navbar />
         <div className="pt-32 flex justify-center px-4">
-          <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[#8fcac4] border-t-[#007c89] rounded-full animate-spin" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#060612]">
+    <div className="min-h-screen bg-[#f6f1e7]">
       <Navbar />
       <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto">
         <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl font-bold text-white mb-2">Register AI Agent</h1>
-          <p className="text-gray-500 mb-8">Configure your agent and start building trust</p>
+          <h1 className="text-3xl font-bold text-[#241c15] mb-2">Register AI Agent</h1>
+          <p className="text-[#6b6257] mb-8">Configure your agent and start building trust</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {authLoading && (
-              <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-sm text-cyan-300">
+              <div className="p-4 rounded-[20px] bg-[#d8f3f0] border border-[#8fcac4] text-sm text-[#004e56]">
                 Checking authentication state...
               </div>
             )}
 
             {!authLoading && !isAuthenticated && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm text-amber-300">
+              <div className="p-4 rounded-[20px] bg-[#fff4c4] border border-[#e5c917] text-sm text-[#8b5e00]">
                 Please sign in with a developer account to register an agent.
               </div>
             )}
 
             {!authLoading && isAuthenticated && user?.role !== "developer" && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm text-amber-300">
+              <div className="p-4 rounded-[20px] bg-[#fff4c4] border border-[#e5c917] text-sm text-[#8b5e00]">
                 Access denied: developer role required.
               </div>
             )}
 
             {error && (
-              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400 flex items-start gap-2">
+              <div className="p-4 rounded-[20px] bg-[#fbe7e7] border border-[#efb4b4] text-sm text-[#a12a2a] flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 {error}
               </div>
             )}
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Bot className="h-5 w-5 text-cyan-400" /> Agent Info
+            <div className="rounded-[24px] border border-[#d9cfba] bg-white p-6 space-y-5">
+              <h2 className="text-lg font-semibold text-[#241c15] flex items-center gap-2">
+                <Bot className="h-5 w-5 text-[#007c89]" /> Agent Info
               </h2>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Agent Name *</label>
+                <label className="block text-sm font-medium text-[#403b33] mb-2">Agent Name *</label>
                 <input
                   id="agent-name"
                   type="text"
@@ -153,43 +153,43 @@ export default function RegisterAgentPage() {
                   onChange={(e) => setName(e.target.value)}
                   required
                   minLength={2}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all"
+                  className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all"
                   placeholder="e.g., CodeReviewer Pro"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                <label className="block text-sm font-medium text-[#403b33] mb-2">Description</label>
                 <textarea
                   id="agent-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all resize-none"
+                  className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all resize-none"
                   placeholder="What does your agent do?"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
+                <label className="block text-sm font-medium text-[#403b33] mb-2">Category</label>
                 <input
                   id="agent-category"
                   type="text"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all"
+                  className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all"
                   placeholder="e.g., coding, research, support"
                 />
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Zap className="h-5 w-5 text-cyan-400" /> AI Configuration
+            <div className="rounded-[24px] border border-[#d9cfba] bg-white p-6 space-y-5">
+              <h2 className="text-lg font-semibold text-[#241c15] flex items-center gap-2">
+                <Zap className="h-5 w-5 text-[#007c89]" /> AI Configuration
               </h2>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Provider *</label>
+                <label className="block text-sm font-medium text-[#403b33] mb-2">Provider *</label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {providers.map((p) => (
                     <button
@@ -202,10 +202,10 @@ export default function RegisterAgentPage() {
                           setSystemPrompt("External Docker agent using AgentTrust structured execution contract.");
                         }
                       }}
-                      className={`p-3 rounded-xl border text-sm font-medium transition-all ${
+                      className={`p-3 rounded-[20px] border text-sm font-medium transition-all ${
                         provider === p.value
-                          ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-400"
-                          : "border-white/10 bg-white/[0.02] text-gray-500 hover:border-white/20"
+                          ? "border-[#007c89] bg-[#d8f3f0] text-[#007c89]"
+                          : "border-[#d9cfba] bg-white text-[#6b6257] hover:border-[#241c15]"
                       }`}
                     >
                       {p.label}
@@ -215,34 +215,34 @@ export default function RegisterAgentPage() {
               </div>
 
               {provider === "external_docker" && (
-                <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-4">
+                <div className="rounded-[20px] border border-[#8fcac4] bg-[#d8f3f0] p-4 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Docker Image *</label>
+                    <label className="block text-sm font-medium text-[#403b33] mb-2">Docker Image *</label>
                     <input
                       id="agent-docker-image"
                       type="text"
                       value={dockerImage}
                       onChange={(e) => setDockerImage(e.target.value)}
                       required
-                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all font-mono text-sm"
+                      className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all font-mono text-sm"
                       placeholder="clawbot-demo:latest"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Run Command</label>
+                    <label className="block text-sm font-medium text-[#403b33] mb-2">Run Command</label>
                     <input
                       id="agent-docker-command"
                       type="text"
                       value={dockerCommand}
                       onChange={(e) => setDockerCommand(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all font-mono text-sm"
+                      className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all font-mono text-sm"
                       placeholder="Optional command override, usually blank"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Timeout Seconds *</label>
+                    <label className="block text-sm font-medium text-[#403b33] mb-2">Timeout Seconds *</label>
                     <input
                       id="agent-timeout-seconds"
                       type="number"
@@ -251,19 +251,19 @@ export default function RegisterAgentPage() {
                       value={timeoutSeconds}
                       onChange={(e) => setTimeoutSeconds(Number(e.target.value))}
                       required
-                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all"
+                      className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all"
                     />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Model *</label>
+                <label className="block text-sm font-medium text-[#403b33] mb-2">Model *</label>
                 <select
                   id="agent-model"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all"
+                  className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all"
                 >
                   {selectedProvider?.models.map((m) => (
                     <option key={m} value={m} className="bg-gray-900">{m}</option>
@@ -272,7 +272,7 @@ export default function RegisterAgentPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">System Prompt *</label>
+                <label className="block text-sm font-medium text-[#403b33] mb-2">System Prompt *</label>
                 <textarea
                   id="agent-system-prompt"
                   value={systemPrompt}
@@ -280,7 +280,7 @@ export default function RegisterAgentPage() {
                   required
                   minLength={10}
                   rows={6}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all resize-none font-mono text-sm"
+                  className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all resize-none font-mono text-sm"
                   placeholder="You are a helpful AI assistant that..."
                 />
               </div>
@@ -290,7 +290,7 @@ export default function RegisterAgentPage() {
               id="register-agent-submit"
               type="submit"
               disabled={loading || authLoading || !canRegister}
-              className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-lg hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-cyan-500/25"
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-[20px] bg-[#ffe01b] border border-[#241c15] text-[#241c15] font-semibold text-lg hover:bg-[#f6d90b] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-black/10"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

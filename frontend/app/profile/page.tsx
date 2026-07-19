@@ -41,27 +41,27 @@ export default function ProfilePage() {
 
   if (isLoading || !user) {
     return (
-      <div className="min-h-screen bg-[#060612] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#f6f1e7] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#8fcac4] border-t-[#007c89] rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#060612]">
+    <div className="min-h-screen bg-[#f6f1e7]">
       <Navbar />
       <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
         <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
           {/* Profile header */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 mb-8">
+          <div className="rounded-[24px] border border-[#d9cfba] bg-white p-8 mb-8">
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-6">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-3xl font-bold text-white">
+              <div className="w-20 h-20 rounded-[24px] bg-gradient-to-br from-[#ffe01b] to-[#ffe01b] flex items-center justify-center text-3xl font-bold text-[#241c15]">
                 {user.name.charAt(0).toUpperCase()}
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">{user.name}</h1>
-                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                <h1 className="text-2xl font-bold text-[#241c15]">{user.name}</h1>
+                <div className="flex items-center gap-4 mt-2 text-sm text-[#6b6257]">
                   <span className="flex items-center gap-1"><Mail className="h-4 w-4" /> {user.email}</span>
                   <span className="flex items-center gap-1"><User className="h-4 w-4" /> {user.role}</span>
                   <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> Joined {new Date(user.created_at).toLocaleDateString()}</span>
@@ -73,27 +73,27 @@ export default function ProfilePage() {
           </div>
 
           {/* Stellar Wallet */}
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6 mb-8">
+          <div className="rounded-[20px] border border-[#d9cfba] bg-white p-6 mb-8">
             <div className="mb-4 flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-cyan-400" />
-              <h2 className="text-lg font-semibold text-white">Stellar Wallet</h2>
+              <Wallet className="h-5 w-5 text-[#007c89]" />
+              <h2 className="text-lg font-semibold text-[#241c15]">Stellar Wallet</h2>
             </div>
-            <p className="mb-4 text-sm text-gray-400">
+            <p className="mb-4 text-sm text-[#6b6257]">
               Optional: connect Stellar wallet to attach identity to runs.
             </p>
             {user.stellar_wallet_address ? (
               <div className="space-y-3">
                 <div>
-                  <p className="text-xs text-gray-500">Public Key</p>
-                  <code className="block break-all text-sm text-emerald-300">{user.stellar_wallet_address}</code>
+                  <p className="text-xs text-[#6b6257]">Public Key</p>
+                  <code className="block break-all text-sm text-[#004e56]">{user.stellar_wallet_address}</code>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Network</p>
-                  <p className="text-sm text-white capitalize">{user.stellar_wallet_network || "testnet"}</p>
+                  <p className="text-xs text-[#6b6257]">Network</p>
+                  <p className="text-sm text-[#241c15] capitalize">{user.stellar_wallet_network || "testnet"}</p>
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-[#6b6257]">
                 Platform proofs still work without a wallet.
               </p>
             )}
@@ -101,27 +101,27 @@ export default function ProfilePage() {
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-center">
-              <Bot className="h-6 w-6 text-cyan-400 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-white">{agents.length}</p>
-              <p className="text-xs text-gray-500">Agents</p>
+            <div className="rounded-[20px] border border-[#d9cfba] bg-white p-6 text-center">
+              <Bot className="h-6 w-6 text-[#007c89] mx-auto mb-2" />
+              <p className="text-2xl font-bold text-[#241c15]">{agents.length}</p>
+              <p className="text-xs text-[#6b6257]">Agents</p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-center">
-              <Activity className="h-6 w-6 text-emerald-400 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-white">{runs.length}</p>
-              <p className="text-xs text-gray-500">Executions</p>
+            <div className="rounded-[20px] border border-[#d9cfba] bg-white p-6 text-center">
+              <Activity className="h-6 w-6 text-[#007c89] mx-auto mb-2" />
+              <p className="text-2xl font-bold text-[#241c15]">{runs.length}</p>
+              <p className="text-xs text-[#6b6257]">Executions</p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-center">
-              <User className="h-6 w-6 text-purple-400 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-white capitalize">{user.role}</p>
-              <p className="text-xs text-gray-500">Account Type</p>
+            <div className="rounded-[20px] border border-[#d9cfba] bg-white p-6 text-center">
+              <User className="h-6 w-6 text-[#8b5e00] mx-auto mb-2" />
+              <p className="text-2xl font-bold text-[#241c15] capitalize">{user.role}</p>
+              <p className="text-xs text-[#6b6257]">Account Type</p>
             </div>
           </div>
 
           {/* My Agents */}
           {agents.length > 0 && (
             <div className="mb-8">
-              <h2 className="text-xl font-semibold text-white mb-4">My Agents</h2>
+              <h2 className="text-xl font-semibold text-[#241c15] mb-4">My Agents</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {agents.map((agent, i) => (
                   <AgentCard key={agent.id} agent={agent} index={i} />
@@ -133,16 +133,16 @@ export default function ProfilePage() {
           {/* Recent Executions */}
           {runs.length > 0 && (
             <div>
-              <h2 className="text-xl font-semibold text-white mb-4">Recent Executions</h2>
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] divide-y divide-white/5">
+              <h2 className="text-xl font-semibold text-[#241c15] mb-4">Recent Executions</h2>
+              <div className="rounded-[20px] border border-[#d9cfba] bg-white divide-y divide-[#e7ddc6]">
                 {runs.slice(0, 10).map((run) => (
-                  <Link key={run.id} href={`/runs/${run.id}`} className="flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition-colors">
+                  <Link key={run.id} href={`/runs/${run.id}`} className="flex items-center justify-between px-5 py-4 hover:bg-white transition-colors">
                     <div>
-                      <p className="text-sm text-white">{run.agent_name || "Unknown Agent"}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{new Date(run.created_at).toLocaleString()}</p>
+                      <p className="text-sm text-[#241c15]">{run.agent_name || "Unknown Agent"}</p>
+                      <p className="text-xs text-[#6b6257] mt-0.5">{new Date(run.created_at).toLocaleString()}</p>
                     </div>
                     <span className={`text-xs px-2.5 py-0.5 rounded-full ${
-                      run.status === "success" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                      run.status === "success" ? "bg-[#d8f3f0] text-[#007c89]" : "bg-[#fbe7e7] text-[#a12a2a]"
                     }`}>
                       {run.status}
                     </span>
