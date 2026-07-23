@@ -2,22 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import RFB from "@novnc/novnc";
-import {
-  Clipboard,
-  Expand,
-  Keyboard,
-  Loader2,
-  Maximize2,
-  Monitor,
-  MousePointer2,
-  Power,
-  RefreshCw,
-  Shrink,
-  Wifi,
-  WifiOff,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { api, getErrorMessage } from "@/lib/api";
 import { DesktopConnectInfo } from "@/types";
+import {
+  DesktopToolbar,
+  DesktopToolbarConnectionState,
+  SpecialKeyCombination,
+} from "@/components/sandbox/DesktopToolbar";
 
 interface DesktopViewerProps {
   runId: string;
@@ -37,9 +29,16 @@ type ConnectionState =
   | "stopping"
   | "stopped";
 type ScaleMode = "fit" | "native";
+type QualityPreset = 2 | 5 | 8;
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10_000];
+const KEY_DOWN_UP_DELAY_MS = 40;
+const qualitySettings: Record<QualityPreset, { qualityLevel: number; compressionLevel: number }> = {
+  2: { qualityLevel: 2, compressionLevel: 8 },
+  5: { qualityLevel: 5, compressionLevel: 5 },
+  8: { qualityLevel: 8, compressionLevel: 2 },
+};
 
 function resolveProxyOrigin(hostOverride?: string): string {
   if (typeof window === "undefined") return "";
@@ -102,9 +101,12 @@ export function DesktopViewer({
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [viewOnly, setViewOnly] = useState(false);
   const [scaleMode, setScaleMode] = useState<ScaleMode>("fit");
+  const [qualityLevel, setQualityLevel] = useState<QualityPreset>(5);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [desktopName, setDesktopName] = useState("XFCE Desktop");
-  const [clipboardText, setClipboardText] = useState("");
+  const [remoteClipboardText, setRemoteClipboardText] = useState("");
+  const [manualClipboardText, setManualClipboardText] = useState("");
+  const [showClipboardFallback, setShowClipboardFallback] = useState(false);
   const [error, setError] = useState("");
   const [reconnectNonce, setReconnectNonce] = useState(0);
 
@@ -157,8 +159,8 @@ export function DesktopViewer({
     rfb.viewOnly = viewOnly;
     rfb.scaleViewport = scaleMode === "fit";
     rfb.resizeSession = false;
-    rfb.qualityLevel = 6;
-    rfb.compressionLevel = 6;
+    rfb.qualityLevel = qualitySettings[qualityLevel].qualityLevel;
+    rfb.compressionLevel = qualitySettings[qualityLevel].compressionLevel;
     rfbRef.current = rfb;
 
     rfb.addEventListener("connect", () => {
@@ -208,7 +210,21 @@ export function DesktopViewer({
           : "XFCE Desktop";
       setDesktopName(nextName || "XFCE Desktop");
     });
-  }, [cleanupRfb, connectInfo, onSessionEnded, scaleMode, viewOnly, websocketUrl]);
+
+    rfb.addEventListener("clipboard", (event) => {
+      const text =
+        "detail" in event && (event as CustomEvent<{ text?: string }>).detail?.text
+          ? (event as CustomEvent<{ text?: string }>).detail.text
+          : "";
+      if (!text) return;
+      setRemoteClipboardText(text);
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).catch((err) => {
+          console.warn("Browser denied clipboard write access:", err);
+        });
+      }
+    });
+  }, [cleanupRfb, connectInfo, onSessionEnded, qualityLevel, scaleMode, viewOnly, websocketUrl]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -236,6 +252,25 @@ export function DesktopViewer({
       rfbRef.current.resizeSession = false;
       rfbRef.current.focus();
     }
+  }, [scaleMode]);
+
+  useEffect(() => {
+    if (!rfbRef.current) return;
+    const settings = qualitySettings[qualityLevel];
+    rfbRef.current.qualityLevel = settings.qualityLevel;
+    rfbRef.current.compressionLevel = settings.compressionLevel;
+  }, [qualityLevel]);
+
+  useEffect(() => {
+    const container = screenRef.current;
+    if (!container || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (!rfbRef.current) return;
+      rfbRef.current.scaleViewport = scaleMode === "fit";
+      rfbRef.current.resizeSession = false;
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
   }, [scaleMode]);
 
   useEffect(() => {
@@ -286,10 +321,70 @@ export function DesktopViewer({
     rfbRef.current?.focus();
   };
 
-  const pasteClipboard = () => {
-    if (!clipboardText.trim()) return;
-    rfbRef.current?.clipboardPasteFrom(clipboardText);
+  const sendTextToDesktop = (text: string) => {
+    if (!text.trim()) return;
+    rfbRef.current?.clipboardPasteFrom(text);
     rfbRef.current?.focus();
+  };
+
+  const copyRemoteClipboard = async () => {
+    if (!remoteClipboardText || !navigator.clipboard?.writeText) {
+      setShowClipboardFallback(true);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(remoteClipboardText);
+    } catch {
+      setShowClipboardFallback(true);
+    }
+  };
+
+  const pasteLocalClipboard = async () => {
+    if (!navigator.clipboard?.readText) {
+      setShowClipboardFallback(true);
+      return;
+    }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        sendTextToDesktop(text);
+        setManualClipboardText(text);
+      } else {
+        setShowClipboardFallback(true);
+      }
+    } catch {
+      setShowClipboardFallback(true);
+    }
+  };
+
+  const sendKeyPress = (keysym: number, code?: string) => {
+    rfbRef.current?.sendKey(keysym, code, true);
+    window.setTimeout(() => rfbRef.current?.sendKey(keysym, code, false), KEY_DOWN_UP_DELAY_MS);
+  };
+
+  const sendSpecialKey = (keyCombination: SpecialKeyCombination) => {
+    const rfb = rfbRef.current;
+    if (!rfb || viewOnly) return;
+
+    if (keyCombination === "ctrl_alt_del") {
+      rfb.sendCtrlAltDel();
+      return;
+    }
+    if (keyCombination === "super") {
+      sendKeyPress(0xffeb, "MetaLeft");
+      return;
+    }
+    if (keyCombination === "esc") {
+      sendKeyPress(0xff1b, "Escape");
+      return;
+    }
+
+    rfb.sendKey(0xffe9, "AltLeft", true);
+    window.setTimeout(() => {
+      rfb.sendKey(0xff09, "Tab", true);
+      rfb.sendKey(0xff09, "Tab", false);
+      rfb.sendKey(0xffe9, "AltLeft", false);
+    }, KEY_DOWN_UP_DELAY_MS);
   };
 
   const statusLabel = {
@@ -304,98 +399,44 @@ export function DesktopViewer({
     stopped: "Stopped",
   }[connectionState];
 
-  const isConnected = connectionState === "connected";
+  const toolbarState: DesktopToolbarConnectionState =
+    connectionState === "idle" || connectionState === "loading"
+      ? "initializing"
+      : connectionState === "failed"
+        ? "error"
+        : connectionState === "stopping" || connectionState === "stopped"
+          ? "disconnected"
+          : connectionState;
 
   return (
     <section
       ref={shellRef}
-      className={`flex min-h-[420px] flex-col overflow-hidden border border-zinc-800 bg-zinc-950 text-zinc-100 ${className}`}
+      className={`relative flex min-h-[420px] flex-col overflow-hidden border border-zinc-800 bg-zinc-950 text-zinc-100 ${className}`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 font-mono text-[11px] uppercase text-emerald-200">
-            {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-            <span>{statusLabel}</span>
-            {latencyMs !== null && <span className="text-zinc-500">{latencyMs}ms</span>}
-          </div>
-          <p className="truncate text-sm font-medium text-zinc-100">{desktopName}</p>
-        </div>
+      <DesktopToolbar
+        runId={runId}
+        connectionState={toolbarState}
+        scaleViewport={scaleMode === "fit"}
+        viewOnly={viewOnly}
+        qualityLevel={qualityLevel}
+        onToggleScaleViewport={() => setScaleMode((value) => (value === "fit" ? "native" : "fit"))}
+        onToggleViewOnly={() => setViewOnly((value) => !value)}
+        onChangeQuality={(level) => setQualityLevel(level === 2 || level === 8 ? level : 5)}
+        onSendSpecialKey={sendSpecialKey}
+        onCopyClipboard={copyRemoteClipboard}
+        onPasteClipboard={pasteLocalClipboard}
+        onToggleFullscreen={toggleFullscreen}
+        onStopSession={stopSession}
+        onReconnect={reconnect}
+      />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setViewOnly((value) => !value)}
-            className={`inline-flex h-8 items-center gap-1 border px-3 font-mono text-[11px] uppercase transition-colors ${
-              viewOnly
-                ? "border-zinc-700 bg-zinc-900 text-zinc-300"
-                : "border-emerald-400/40 bg-emerald-400/10 text-emerald-100"
-            }`}
-            title="Toggle mouse and keyboard control"
-          >
-            {viewOnly ? <Monitor className="h-3.5 w-3.5" /> : <MousePointer2 className="h-3.5 w-3.5" />}
-            {viewOnly ? "View" : "Control"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setScaleMode((value) => (value === "fit" ? "native" : "fit"))}
-            className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-900 text-zinc-300 transition-colors hover:border-emerald-400/40 hover:text-emerald-100"
-            title={scaleMode === "fit" ? "Switch to native resolution" : "Scale to fit window"}
-          >
-            {scaleMode === "fit" ? <Shrink className="h-3.5 w-3.5" /> : <Expand className="h-3.5 w-3.5" />}
-          </button>
-          <button
-            type="button"
-            onClick={() => rfbRef.current?.sendCtrlAltDel()}
-            disabled={!isConnected || viewOnly}
-            className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-900 text-zinc-300 transition-colors hover:border-emerald-400/40 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
-            title="Send Ctrl+Alt+Del"
-          >
-            <Keyboard className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={reconnect}
-            className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-900 text-zinc-300 transition-colors hover:border-emerald-400/40 hover:text-emerald-100"
-            title="Reconnect desktop stream"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${connectionState === "reconnecting" ? "animate-spin" : ""}`} />
-          </button>
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-900 text-zinc-300 transition-colors hover:border-emerald-400/40 hover:text-emerald-100"
-            title="Toggle fullscreen"
-          >
-            <Maximize2 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={stopSession}
-            disabled={connectionState === "stopping" || connectionState === "stopped"}
-            className="inline-flex h-8 w-8 items-center justify-center border border-red-400/30 bg-red-500/10 text-red-200 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-            title="Stop desktop session"
-          >
-            {connectionState === "stopping" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Power className="h-3.5 w-3.5" />}
-          </button>
+      <div className="flex min-h-9 items-center justify-between gap-3 border-b border-zinc-900 px-4 py-2">
+        <p className="truncate text-sm font-medium text-zinc-100">{desktopName}</p>
+        <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] uppercase text-zinc-500">
+          {latencyMs !== null && <span>{latencyMs}ms</span>}
+          <span>{scaleMode === "fit" ? "fit" : "native"}</span>
+          <span>q{qualityLevel}</span>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-900 px-4 py-2">
-        <Clipboard className="h-3.5 w-3.5 text-zinc-500" />
-        <input
-          value={clipboardText}
-          onChange={(event) => setClipboardText(event.target.value)}
-          placeholder="Paste text into the remote clipboard"
-          className="h-8 min-w-[220px] flex-1 border border-zinc-800 bg-black px-3 text-xs text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-400/40"
-        />
-        <button
-          type="button"
-          onClick={pasteClipboard}
-          disabled={!isConnected || viewOnly || !clipboardText.trim()}
-          className="h-8 border border-zinc-700 bg-zinc-900 px-3 font-mono text-[11px] uppercase text-zinc-300 transition-colors hover:border-emerald-400/40 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Paste
-        </button>
       </div>
 
       <div className="relative min-h-[360px] flex-1 bg-black">
@@ -428,6 +469,41 @@ export function DesktopViewer({
           </div>
         )}
       </div>
+
+      {showClipboardFallback && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-lg border border-zinc-700 bg-zinc-950 p-4 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-zinc-100">Clipboard</h3>
+              <button
+                type="button"
+                onClick={() => setShowClipboardFallback(false)}
+                className="h-8 border border-zinc-700 px-3 text-xs text-zinc-300 hover:text-zinc-100"
+              >
+                Close
+              </button>
+            </div>
+            <textarea
+              value={manualClipboardText || remoteClipboardText}
+              onChange={(event) => setManualClipboardText(event.target.value)}
+              rows={7}
+              className="w-full border border-zinc-800 bg-black p-3 text-sm text-zinc-100 outline-none focus:border-emerald-400/40"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  sendTextToDesktop(manualClipboardText || remoteClipboardText);
+                  setShowClipboardFallback(false);
+                }}
+                className="border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-100 hover:bg-emerald-400/20"
+              >
+                Send to Remote Desktop
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

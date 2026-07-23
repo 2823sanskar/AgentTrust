@@ -5,6 +5,7 @@ declare module "@novnc/novnc" {
     | "credentialsrequired"
     | "securityfailure"
     | "desktopname"
+    | "clipboard"
     | "bell"
     | "capabilities";
 
@@ -40,6 +41,12 @@ declare module "@novnc/novnc" {
     };
   }
 
+  export interface RFBClipboardEvent extends Event {
+    detail?: {
+      text?: string;
+    };
+  }
+
   export default class RFB extends EventTarget {
     constructor(target: HTMLElement, url: string, options?: RFBOptions);
     viewOnly: boolean;
@@ -52,6 +59,7 @@ declare module "@novnc/novnc" {
     disconnect(): void;
     sendCredentials(credentials: RFBCredentials): void;
     sendCtrlAltDel(): void;
+    sendKey(keysym: number, code?: string, down?: boolean): void;
     clipboardPasteFrom(text: string): void;
   }
 }
