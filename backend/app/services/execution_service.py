@@ -22,7 +22,8 @@ from app.services.browser_agent import BrowserAgentExecutionError, execute_brows
 from app.services.docker_sandbox import execute_docker_agent
 from app.services.vm_sandbox import execute_vm_sandbox_agent
 from app.services.trust_service import recalculate_trust_score
-from app.blockchain.stellar import anchor_hash_on_stellar, verify_stellar_transaction
+from app.blockchain.stellar import verify_stellar_transaction
+from app.services.stellar import anchor_hash_to_stellar
 from app.config import settings
 from app.utils.hashing import compute_execution_hash, hash_to_bytes
 
@@ -182,8 +183,14 @@ async def execute_agent(
     # 8. Submit hash to Stellar Testnet
     stellar_tx = None
     try:
-        hash_bytes = hash_to_bytes(execution_hash)
-        stellar_tx = await anchor_hash_on_stellar(hash_bytes)
+        stellar_anchor = await anchor_hash_to_stellar(execution_hash)
+        stellar_tx = stellar_anchor["tx_hash"] if stellar_anchor["success"] else None
+        if not stellar_anchor["success"]:
+            logger.error(
+                "Stellar anchoring failed for run %s: %s",
+                run_id,
+                stellar_anchor["error"],
+            )
     except Exception as e:
         logger.error(f"Stellar anchoring failed for run {run_id}: {e}")
 
@@ -220,11 +227,20 @@ async def execute_agent(
     return _run_to_response(run)
 
 
-async def get_run(db: AsyncSession, run_id: uuid.UUID) -> RunResponse:
+async def get_run(
+    db: AsyncSession,
+    run_id: uuid.UUID,
+    current_user_id: uuid.UUID | None = None,
+) -> RunResponse:
     result = await db.execute(select(Run).where(Run.id == run_id))
     run = result.scalar_one_or_none()
     if not run:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    if current_user_id and run.user_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot view another user's execution run",
+        )
     return _run_to_response(run)
 
 
@@ -319,6 +335,8 @@ async def verify_run(db: AsyncSession, run_id: uuid.UUID) -> VerificationRespons
         computed_hash=computed_hash,
         hashes_match=hashes_match,
         stellar_transaction=run.stellar_transaction,
+        evidence_hash=run.hash,
+        stellar_tx_hash=run.stellar_transaction,
         stellar_verified=stellar_verified,
         verification_status=verification_status,
         run_details=_run_to_response(run),
@@ -342,6 +360,8 @@ def _run_to_response(run: Run) -> RunResponse:
         created_at=run.created_at,
         hash=run.hash,
         stellar_transaction=run.stellar_transaction,
+        evidence_hash=run.hash,
+        stellar_tx_hash=run.stellar_transaction,
         agent_name=run.agent.name if run.agent else None,
         user_name=run.user.name if run.user else None,
         user_stellar_wallet_address=run.user_stellar_wallet_address or (run.user.stellar_wallet_address if run.user else None),

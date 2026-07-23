@@ -1,9 +1,55 @@
 // API client with JWT token injection
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/+$/, "");
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/+$/, "");
 
 export function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+type ApiErrorBody = {
+  detail?: unknown;
+  message?: unknown;
+  error?: unknown;
+};
+
+export class ApiRequestError extends Error {
+  status: number;
+  detail: unknown;
+
+  constructor(message: string, status: number, detail: unknown) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+export function isAuthExpiredError(error: unknown): error is ApiRequestError {
+  return error instanceof ApiRequestError && (error.status === 401 || error.status === 403);
+}
+
+export function clearClientAuthStorage() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem("access_token");
+    window.localStorage.removeItem("token");
+    window.localStorage.removeItem("authToken");
+    window.localStorage.removeItem("agenttrust_user");
+    window.localStorage.removeItem("user");
+    window.sessionStorage.clear();
+    if (typeof document !== "undefined") {
+      document.cookie = "access_token=; Path=/; SameSite=Lax; Max-Age=0";
+      document.cookie = "token=; Path=/; SameSite=Lax; Max-Age=0";
+    }
+  } catch {
+    // Browser storage may be blocked; the in-memory auth context still resets.
+  }
+}
+
+function notifyAuthExpired() {
+  clearClientAuthStorage();
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("agenttrust:auth-expired"));
 }
 
 function formatApiError(detail: unknown, fallback: string): string {
@@ -26,11 +72,38 @@ function formatApiError(detail: unknown, fallback: string): string {
   return fallback;
 }
 
+async function parseErrorBody(response: Response): Promise<ApiErrorBody> {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return response.json().catch(() => ({ detail: "Request failed" }));
+  }
+
+  const text = await response.text().catch(() => "");
+  return { detail: text || "Request failed" };
+}
+
 class ApiClient {
   private getToken(): string | null {
     if (typeof window === "undefined") return null;
     try {
-      return window.localStorage.getItem("access_token");
+      const localToken =
+        window.localStorage.getItem("access_token") || window.localStorage.getItem("token");
+      if (localToken) return localToken;
+
+      if (typeof document !== "undefined") {
+        const value = `; ${document.cookie}`;
+        const partsAccess = value.split(`; access_token=`);
+        if (partsAccess.length === 2) {
+          const val = partsAccess.pop()?.split(";").shift();
+          if (val) return val;
+        }
+        const partsToken = value.split(`; token=`);
+        if (partsToken.length === 2) {
+          const val = partsToken.pop()?.split(";").shift();
+          if (val) return val;
+        }
+      }
+      return null;
     } catch {
       return null;
     }
@@ -43,6 +116,7 @@ class ApiClient {
   ): Promise<T> {
     const token = this.getToken();
     const headers: Record<string, string> = {
+      "Accept": "application/json",
       "Content-Type": "application/json",
       ...((options.headers as Record<string, string>) || {}),
     };
@@ -66,6 +140,7 @@ class ApiClient {
         ...options,
         headers,
         signal: controller?.signal,
+        credentials: "same-origin",
       });
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
@@ -79,13 +154,23 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "Request failed" }));
-      throw new Error(formatApiError(error.detail, `Request failed (HTTP ${response.status})`));
+      const error = await parseErrorBody(response);
+      const detail = error.detail ?? error.message ?? error.error;
+      const message = formatApiError(detail, `Request failed (HTTP ${response.status})`);
+      console.error("[API Error]:", {
+        endpoint,
+        status: response.status,
+        statusText: response.statusText,
+        detail,
+      });
+      if (response.status === 401 || response.status === 403) {
+        notifyAuthExpired();
+      }
+      throw new ApiRequestError(message, response.status, detail);
     }
 
     return response.json();
   }
-
 
   // Auth
   async register(data: { name: string; email: string; password: string; role: string }) {
@@ -175,10 +260,9 @@ class ApiClient {
     return this.request<import("@/types").Run>(`/runs/${id}`);
   }
 
-  async getRuns(params?: { agent_id?: string; user_id?: string; page?: number; page_size?: number }) {
+  async getRuns(params?: { agent_id?: string; page?: number; page_size?: number }) {
     const searchParams = new URLSearchParams();
     if (params?.agent_id) searchParams.set("agent_id", params.agent_id);
-    if (params?.user_id) searchParams.set("user_id", params.user_id);
     if (params?.page) searchParams.set("page", params.page.toString());
     if (params?.page_size) searchParams.set("page_size", params.page_size.toString());
     const qs = searchParams.toString();

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { Run } from "@/types";
 import { Navbar } from "@/components/layout/navbar";
+import { LiveSandboxConsole } from "@/components/execution/LiveSandboxConsole";
 import VerificationPanel from "@/app/components/VerificationPanel";
 import { motion } from "framer-motion";
 import {
@@ -57,7 +58,7 @@ export default function RunDetailPage() {
   return (
     <div className="min-h-screen bg-[#f6f1e7]">
       <Navbar />
-      <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+      <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -108,6 +109,16 @@ export default function RunDetailPage() {
             <div className="p-5">
               <pre className="whitespace-pre-wrap text-sm text-[#403b33] font-sans">{run.task}</pre>
             </div>
+          </div>
+
+          <div className="mb-4">
+            <LiveSandboxConsole
+              actionLog={run.action_log}
+              stdout={run.container_stdout}
+              stderr={run.container_stderr}
+              status={run.status}
+              routingMode={run.routing_mode}
+            />
           </div>
 
           {/* Action Log */}

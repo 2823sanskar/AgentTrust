@@ -7,6 +7,7 @@ import { api, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Agent, Run } from "@/types";
 import { Navbar } from "@/components/layout/navbar";
+import { LiveSandboxConsole } from "@/components/execution/LiveSandboxConsole";
 import { motion } from "framer-motion";
 import {
   Send, Bot, Clock, CheckCircle2, XCircle, Hash,
@@ -20,14 +21,14 @@ export default function ExecuteAgentPage() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [task, setTask] = useState("");
   const [result, setResult] = useState<Run | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    api.getAgent(id).then(setAgent).catch(console.error).finally(() => setLoading(false));
+    api.getAgent(id).then(setAgent).catch(console.error);
   }, [id]);
 
 
@@ -68,7 +69,7 @@ export default function ExecuteAgentPage() {
   return (
     <div className="min-h-screen bg-[#f6f1e7]">
       <Navbar />
-      <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+      <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
           {/* Agent mini card */}
           {agent && (
@@ -89,12 +90,20 @@ export default function ExecuteAgentPage() {
           <h1 className="text-2xl font-bold text-[#241c15] mb-6">Execute Agent</h1>
 
           {!isAuthenticated ? (
-            <div className="rounded-[20px] border border-[#e5c917] bg-amber-500/5 p-8 text-center">
-              <p className="text-[#8b5e00] mb-4">You need to sign in to execute agents</p>
-              <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 rounded-[20px] bg-[#ffe01b] border border-[#241c15] text-[#241c15] font-medium">
-                Sign In <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
+            <>
+              <div className="rounded-[20px] border border-[#e5c917] bg-amber-500/5 p-8 text-center">
+                <p className="text-[#8b5e00] mb-4">You need to sign in to execute agents</p>
+                <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 rounded-[20px] bg-[#ffe01b] border border-[#241c15] text-[#241c15] font-medium">
+                  Sign In <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+              <div className="mt-8">
+                <LiveSandboxConsole
+                  agentProvider={agent?.provider || "external_docker"}
+                  routingMode="cloud_sandbox"
+                />
+              </div>
+            </>
           ) : (
             <>
               {/* Task input */}
@@ -148,7 +157,7 @@ export default function ExecuteAgentPage() {
               {executing && agent?.provider === "browser" && (
                 <div className="mt-3 flex items-center gap-2 text-xs text-[#007c89]/70">
                   <Globe className="h-3.5 w-3.5 animate-pulse" />
-                  <span>Browsing the web live - please keep this page open…</span>
+                  <span>Browsing the web live - please keep this page open...</span>
                 </div>
               )}
 
@@ -166,6 +175,19 @@ export default function ExecuteAgentPage() {
                   {error}
                 </div>
               )}
+
+              <div className="mt-8">
+                <LiveSandboxConsole
+                  actionLog={result?.action_log}
+                  stdout={result?.container_stdout}
+                  stderr={result?.container_stderr}
+                  isActive={executing}
+                  status={result?.status}
+                  agentProvider={agent?.provider}
+                  routingMode={result?.routing_mode || "cloud_sandbox"}
+                  elapsedSeconds={elapsed}
+                />
+              </div>
 
               {/* Result */}
               {result && (

@@ -27,6 +27,8 @@ class RunResponse(BaseModel):
     created_at: datetime
     hash: Optional[str]
     stellar_transaction: Optional[str]
+    evidence_hash: Optional[str] = None
+    stellar_tx_hash: Optional[str] = None
     agent_name: Optional[str] = None
     user_name: Optional[str] = None
     user_stellar_wallet_address: Optional[str] = None
@@ -49,6 +51,8 @@ class VerificationResponse(BaseModel):
     computed_hash: str
     hashes_match: bool
     stellar_transaction: Optional[str]
+    evidence_hash: Optional[str] = None
+    stellar_tx_hash: Optional[str] = None
     stellar_verified: bool
     verification_status: str  # "verified", "tampered", "unanchored"
     run_details: RunResponse

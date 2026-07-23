@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { getErrorMessage } from "@/lib/api";
 import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight, User, Code2, Users } from "lucide-react";
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, isAuthenticated } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +16,12 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      window.location.assign("/dashboard");
+    }
+  }, [isAuthenticated]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +42,6 @@ export default function RegisterPage() {
       window.location.assign("/dashboard");
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Registration failed"));
-    } finally {
       setLoading(false);
     }
   };

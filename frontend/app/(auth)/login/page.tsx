@@ -1,29 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getErrorMessage } from "@/lib/api";
 import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      window.location.replace("/dashboard");
+    }
+  }, [isAuthenticated]);
+
+  const togglePasswordVisibility = useCallback((event?: Event | React.SyntheticEvent) => {
+    event?.preventDefault();
+    setShowPassword((visible) => {
+      const nextVisible = !visible;
+      if (passwordInputRef.current) {
+        passwordInputRef.current.type = nextVisible ? "text" : "password";
+      }
+      return nextVisible;
+    });
+  }, []);
+
+  useEffect(() => {
+    const toggleButton = document.getElementById("login-password-toggle");
+    toggleButton?.addEventListener("click", togglePasswordVisibility);
+
+    return () => {
+      toggleButton?.removeEventListener("click", togglePasswordVisibility);
+    };
+  }, [togglePasswordVisibility]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
-      window.location.assign("/dashboard");
+      const success = await login(email, password);
+      if (success && typeof window !== "undefined") {
+        router.replace("/dashboard");
+        window.setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 50);
+      }
     } catch (err: unknown) {
+      console.error("Login submission error:", err);
       setError(getErrorMessage(err, "Login failed"));
-    } finally {
       setLoading(false);
     }
   };
@@ -78,6 +112,7 @@ export default function LoginPage() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6b6257]" />
                 <input
                   id="login-password"
+                  ref={passwordInputRef}
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -90,9 +125,7 @@ export default function LoginPage() {
                   type="button"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => setShowPassword((visible) => !visible)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6b6257] hover:text-[#403b33]"
+                  className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[#6b6257] hover:bg-[#f6f1e7] hover:text-[#403b33]"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>

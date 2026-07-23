@@ -28,7 +28,7 @@ export default function ProfilePage() {
       try {
         const [agentsRes, runsRes] = await Promise.all([
           api.getAgents({ page_size: 50 }),
-          api.getRuns({ user_id: user.id, page_size: 20 }),
+          api.getRuns({ page_size: 20 }),
         ]);
         setAgents(agentsRes.agents.filter((a) => a.developer_id === user.id));
         setRuns(runsRes.runs);

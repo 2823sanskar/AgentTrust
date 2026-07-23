@@ -9,6 +9,7 @@ import httpx
 
 from app.models.agent import Agent
 from app.schemas.agent import normalize_docker_command
+from app.services.sandbox import execute_in_sandbox
 
 logger = logging.getLogger(__name__)
 
@@ -171,22 +172,19 @@ async def execute_vm_sandbox_agent(
         raise ValueError("Docker image is not configured for this agent")
 
     timeout_seconds = agent.timeout_seconds or 60
-    request_timeout = timeout_seconds + 5
-    payload = {
-        "run_id": str(run_id),
-        "agent_image": agent.docker_image,
-        "docker_command": normalize_docker_command(agent.docker_command),
-        "task": task,
-        "timeout_seconds": timeout_seconds,
-    }
+    docker_command = normalize_docker_command(agent.docker_command)
 
-    endpoint = f"{worker_url.rstrip('/')}/run"
-    async with httpx.AsyncClient(timeout=httpx.Timeout(request_timeout)) as client:
-        response = await client.post(endpoint, json=payload)
-        response.raise_for_status()
-        data = _inspect_exit_state(response.json())
-        data["routing_mode"] = "cloud_sandbox"
-        data["worker_url"] = worker_url.rstrip("/")
+    data = await execute_in_sandbox(
+        image=agent.docker_image,
+        command=docker_command,
+        timeout=timeout_seconds,
+        task_input=task,
+        run_id=run_id,
+        worker_url=worker_url,
+    )
+    data = _inspect_exit_state(data)
+    data["routing_mode"] = "cloud_sandbox"
+    data["worker_url"] = worker_url.rstrip("/")
 
     stdout = _truncate(str(data.get("stdout") or ""))
     stderr = _truncate(str(data.get("stderr") or ""))

@@ -17,8 +17,24 @@ const nextConfig: NextConfig = {
 
     return [
       {
+        source: "/api/:path*",
+        destination: "http://127.0.0.1:8000/api/:path*",
+      },
+      {
+        source: "/health",
+        destination: "http://127.0.0.1:8000/health",
+      },
+      {
+        source: "/docs",
+        destination: "http://127.0.0.1:8000/docs",
+      },
+      {
+        source: "/openapi.json",
+        destination: "http://127.0.0.1:8000/openapi.json",
+      },
+      {
         source: "/api/sandbox/:path*",
-        destination: "http://localhost:8000/api/sandbox/:path*",
+        destination: "http://127.0.0.1:8000/api/sandbox/:path*",
       },
     ];
   },

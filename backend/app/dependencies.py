@@ -21,8 +21,15 @@ async def get_current_user(
     """Dependency that validates JWT and returns the current user."""
     payload = decode_token(credentials.credentials)
     user_id = uuid.UUID(payload["sub"])
-    user = await get_user_by_id(db, user_id)
-    return user
+    try:
+        return await get_user_by_id(db, user_id)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            ) from exc
+        raise
 
 
 async def get_current_user_optional(
