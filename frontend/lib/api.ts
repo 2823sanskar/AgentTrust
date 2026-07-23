@@ -278,6 +278,28 @@ class ApiClient {
   async verifyRun(runId: string) {
     return this.request<import("@/types").VerificationResult>(`/verify/${runId}`);
   }
+
+  async getDesktopStatus(runId: string) {
+    return this.request<import("@/types").DesktopSessionStatus>(`/v1/desktop/${runId}/status`);
+  }
+
+  async getDesktopConnectInfo(runId: string) {
+    return this.request<import("@/types").DesktopConnectInfo>(`/v1/desktop/${runId}/connect-info`);
+  }
+
+  async sendDesktopHeartbeat(runId: string) {
+    return this.request<import("@/types").DesktopHeartbeatResponse>(
+      `/v1/desktop/${runId}/heartbeat`,
+      { method: "POST" },
+    );
+  }
+
+  async stopDesktopSession(runId: string) {
+    return this.request<import("@/types").DesktopStopResponse>(
+      `/v1/desktop/${runId}/stop`,
+      { method: "POST" },
+    );
+  }
 }
 
 export const api = new ApiClient();

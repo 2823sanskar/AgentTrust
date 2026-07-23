@@ -25,8 +25,12 @@ export interface Agent {
   model: string;
   system_prompt: string;
   category: string | null;
+  agent_type: "prebuilt" | "custom_docker" | "custom_script";
   docker_image: string | null;
   docker_command: string | null;
+  entrypoint_command: string | null;
+  required_env_vars: string[] | null;
+  source_repo_url: string | null;
   timeout_seconds: number | null;
   status: "active" | "inactive";
   created_at: string;
@@ -49,8 +53,12 @@ export interface AgentCreate {
   provider: "openrouter" | "browser" | "external_docker";
   model: string;
   system_prompt: string;
+  agent_type?: "prebuilt" | "custom_docker" | "custom_script";
   docker_image?: string;
   docker_command?: string;
+  entrypoint_command?: string;
+  required_env_vars?: string[];
+  source_repo_url?: string;
   timeout_seconds?: number;
   category?: string;
 }
@@ -67,14 +75,52 @@ export interface Run {
   exit_code: number | null;
   status: "success" | "failure" | "pending" | "blocked";
   execution_time: number | null;
+  is_interactive: boolean;
+  container_id: string | null;
+  vnc_port: number | null;
+  websockify_port: number | null;
+  session_token_preview: string | null;
+  desktop_status: "pending" | "running" | "stopping" | "stopped" | "failed" | "timed_out" | string;
+  last_heartbeat: string | null;
   created_at: string;
   hash: string | null;
   stellar_transaction: string | null;
+  stellar_ledger_sequence: number | null;
+  anchored_at: string | null;
+  anchor_status: "anchored" | "pending_anchor" | "failed_anchor" | string | null;
   agent_name: string | null;
   user_name: string | null;
   user_stellar_wallet_address: string | null;
   user_stellar_wallet_network: string | null;
   routing_mode: "cloud_sandbox" | "local_engine";
+}
+
+export interface DesktopSessionStatus {
+  run_id: string;
+  desktop_status: "pending" | "running" | "stopping" | "stopped" | "failed" | "timed_out" | string;
+  vnc_port: number | null;
+  websockify_port: number | null;
+  container_id: string | null;
+  created_at: string;
+  last_heartbeat: string | null;
+}
+
+export interface DesktopConnectInfo {
+  run_id: string;
+  websockify_port: number | null;
+  session_token: string | null;
+  status: string;
+}
+
+export interface DesktopHeartbeatResponse {
+  status: "ok" | string;
+  last_heartbeat: string;
+}
+
+export interface DesktopStopResponse {
+  status: string;
+  desktop_status: string;
+  container_stopped: boolean;
 }
 
 export interface ActionLogEntry {
@@ -108,6 +154,13 @@ export interface VerificationResult {
   computed_hash: string;
   hashes_match: boolean;
   stellar_transaction: string | null;
+  stellar_ledger_sequence: number | null;
+  anchored_at: string | null;
+  anchor_status: string | null;
+  verified: boolean;
+  tx_hash: string | null;
+  explorer_url: string | null;
+  timestamp: string | null;
   stellar_verified: boolean;
   verification_status: "verified" | "tampered" | "unanchored";
   run_details: Run;
