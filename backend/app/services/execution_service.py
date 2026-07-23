@@ -7,7 +7,6 @@ import asyncio
 import uuid
 import time
 import logging
-import secrets
 from datetime import datetime, timezone
 
 from sqlalchemy import select, func
@@ -25,7 +24,14 @@ from app.services.vm_sandbox import execute_vm_sandbox_agent
 from app.services.desktop_orchestrator import (
     DesktopOrchestrationError,
     spawn_desktop_container,
+    stop_desktop_container,
     wait_for_desktop_readiness,
+)
+from app.services.port_manager import (
+    NoAvailablePortError,
+    allocate_desktop_ports,
+    generate_desktop_session_token,
+    release_desktop_ports,
 )
 from app.services.sandbox import get_desktop_container_config
 from app.services.trust_service import recalculate_trust_score
@@ -281,9 +287,21 @@ async def _start_interactive_desktop_run(
     run_id = uuid.uuid4()
     created_at = datetime.now(timezone.utc)
     desktop_config = get_desktop_container_config()
-    session_token = secrets.token_urlsafe(24)
-    selected_vnc_port = vnc_port or desktop_config.vnc_port
-    selected_websockify_port = websockify_port or desktop_config.websocket_port
+
+    try:
+        selected_vnc_port, selected_websockify_port = await allocate_desktop_ports(
+            db,
+            requested_vnc=vnc_port,
+            requested_websockify=websockify_port,
+        )
+    except NoAvailablePortError as exc:
+        logger.error("Interactive desktop port allocation failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No interactive desktop ports are currently available.",
+        ) from exc
+
+    session_token = generate_desktop_session_token()
 
     run = Run(
         id=run_id,
@@ -318,6 +336,7 @@ async def _start_interactive_desktop_run(
     db.add(run)
     await db.flush()
 
+    container_id: str | None = None
     try:
         metadata = await spawn_desktop_container(
             str(run_id),
@@ -325,8 +344,10 @@ async def _start_interactive_desktop_run(
             selected_vnc_port,
             selected_websockify_port,
         )
-        await wait_for_desktop_readiness(str(metadata["container_id"]))
-        run.container_id = str(metadata["container_id"])
+        container_id = str(metadata["container_id"])
+        await wait_for_desktop_readiness(container_id)
+        await release_desktop_ports(selected_vnc_port, selected_websockify_port)
+        run.container_id = container_id
         run.desktop_status = "running"
         run.response = "Interactive desktop session is running."
         run.action_log = [
@@ -347,6 +368,16 @@ async def _start_interactive_desktop_run(
         await db.refresh(run)
         return _run_to_response(run)
     except DesktopOrchestrationError as exc:
+        await release_desktop_ports(selected_vnc_port, selected_websockify_port)
+        if container_id:
+            try:
+                await stop_desktop_container(container_id)
+            except DesktopOrchestrationError as cleanup_exc:
+                logger.warning(
+                    "Failed to clean up desktop container %s after startup error: %s",
+                    container_id,
+                    cleanup_exc,
+                )
         logger.error("Interactive desktop spawn failed for run %s: %s", run_id, exc)
         run.desktop_status = "failed"
         run.status = "failure"
