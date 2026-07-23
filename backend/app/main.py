@@ -17,6 +17,7 @@ from app.config import settings
 from app.database import DATABASE_UNAVAILABLE_DETAIL, check_db_connection, engine, init_db
 from app.api import auth, agents, executions, trust, verify, sandbox
 from app.rate_limit import limiter
+from app.services.stellar_service import ensure_stellar_anchor_account
 
 # Configure logging
 logging.basicConfig(
@@ -48,6 +49,9 @@ async def lifespan(app: FastAPI):
             "Backend is starting in degraded development mode; database-backed routes "
             "will return HTTP 503 until the connection is fixed."
         )
+
+    if settings.STELLAR_NETWORK.lower() != "mainnet" or settings.STELLAR_SECRET_KEY:
+        await ensure_stellar_anchor_account()
 
     try:
         yield

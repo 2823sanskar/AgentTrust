@@ -2,10 +2,13 @@
 Execution API endpoints: execute agents, list/view runs.
 """
 
+import asyncio
+import json
 import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -40,6 +43,36 @@ async def get_run(
 ):
     """Fetch a specific execution record."""
     return await execution_service.get_run(db, run_id, current_user.id)
+
+
+@router.get("/runs/{run_id}/stream")
+async def stream_run(
+    run_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream execution snapshots as SSE for the live sandbox console."""
+
+    async def events():
+        for _ in range(60):
+            run = await execution_service.get_run(db, run_id, current_user.id)
+            payload = run.model_dump(mode="json")
+            event_type = "complete" if run.status not in {"pending", "blocked"} else "snapshot"
+            yield f"data: {json.dumps({'type': event_type, 'run': payload})}\n\n"
+            if event_type == "complete":
+                return
+            await asyncio.sleep(1)
+        yield f"data: {json.dumps({'type': 'timeout', 'message': 'Execution stream timed out.'})}\n\n"
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/runs", response_model=RunListResponse)

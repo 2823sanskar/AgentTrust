@@ -22,10 +22,13 @@ from app.services.browser_agent import BrowserAgentExecutionError, execute_brows
 from app.services.docker_sandbox import execute_docker_agent
 from app.services.vm_sandbox import execute_vm_sandbox_agent
 from app.services.trust_service import recalculate_trust_score
-from app.blockchain.stellar import verify_stellar_transaction
-from app.services.stellar import anchor_hash_to_stellar
+from app.services.stellar_service import (
+    TERMINAL_RUN_STATUSES,
+    anchor_run_to_stellar,
+    verify_run_receipt,
+)
 from app.config import settings
-from app.utils.hashing import compute_execution_hash, hash_to_bytes
+from app.utils.hashing import compute_execution_hash
 
 logger = logging.getLogger(__name__)
 
@@ -180,21 +183,7 @@ async def execute_agent(
         exit_code=exit_code,
     )
 
-    # 8. Submit hash to Stellar Testnet
-    stellar_tx = None
-    try:
-        stellar_anchor = await anchor_hash_to_stellar(execution_hash)
-        stellar_tx = stellar_anchor["tx_hash"] if stellar_anchor["success"] else None
-        if not stellar_anchor["success"]:
-            logger.error(
-                "Stellar anchoring failed for run %s: %s",
-                run_id,
-                stellar_anchor["error"],
-            )
-    except Exception as e:
-        logger.error(f"Stellar anchoring failed for run {run_id}: {e}")
-
-    # 9. Store the run
+    # 8. Store the run, then anchor the actual persisted row.
     run = Run(
         id=run_id,
         agent_id=agent_id,
@@ -209,20 +198,30 @@ async def execute_agent(
         execution_time=execution_time,
         created_at=created_at,
         hash=execution_hash,
-        stellar_transaction=stellar_tx,
+        stellar_transaction=None,
+        stellar_ledger_sequence=None,
+        anchored_at=None,
+        anchor_status="pending_anchor",
         user_stellar_wallet_address=user.stellar_wallet_address if user else None,
         user_stellar_wallet_network=user.stellar_wallet_network if user else None,
     )
     db.add(run)
     await db.flush()
 
-    # 10. Recalculate trust score. Never let scoring failure hide a stored run.
+    try:
+        run = await anchor_run_to_stellar(db, run.id)
+        if run.anchor_status != "anchored":
+            logger.warning("Run %s remains pending Stellar anchoring", run.id)
+    except Exception as e:
+        logger.error(f"Stellar anchoring failed for run {run_id}: {e}")
+
+    # 9. Recalculate trust score. Never let scoring failure hide a stored run.
     try:
         await recalculate_trust_score(db, agent_id)
     except Exception as e:
         logger.error(f"Trust recalculation failed for run {run_id}: {e}")
 
-    # 11. Return complete run
+    # 10. Return complete run
     await db.refresh(run)
     return _run_to_response(run)
 
@@ -305,19 +304,30 @@ async def verify_run(db: AsyncSession, run_id: uuid.UUID) -> VerificationRespons
         created_at=run.created_at,
     )
 
+    if run.status in TERMINAL_RUN_STATUSES and not run.stellar_transaction:
+        try:
+            run = await anchor_run_to_stellar(db, run.id)
+        except Exception as e:
+            logger.error(f"On-demand Stellar anchoring failed for run {run_id}: {e}")
+
     hashes_match = computed_hash == run.hash
 
     # Verify Stellar transaction
-    stellar_verified = False
-    if run.stellar_transaction:
-        stellar_info = await verify_stellar_transaction(
-            run.stellar_transaction,
-            expected_hash_bytes=hash_to_bytes(computed_hash),
-        )
-        stellar_verified = bool(
-            stellar_info.get("exists", False)
-            and stellar_info.get("memo_matches", False)
-        )
+    receipt = await verify_run_receipt(run, network=settings.STELLAR_NETWORK)
+    stellar_verified = receipt["verified"]
+    if stellar_verified:
+        run.anchor_status = "anchored"
+        if receipt["ledger"]:
+            run.stellar_ledger_sequence = receipt["ledger"]
+        if receipt["timestamp"] and not run.anchored_at:
+            try:
+                run.anchored_at = datetime.fromisoformat(
+                    receipt["timestamp"].replace("Z", "+00:00")
+                )
+            except ValueError:
+                logger.warning("Unable to parse Stellar timestamp for run %s", run.id)
+        db.add(run)
+        await db.flush()
 
     # Determine verification status
     if not hashes_match:
@@ -337,6 +347,13 @@ async def verify_run(db: AsyncSession, run_id: uuid.UUID) -> VerificationRespons
         stellar_transaction=run.stellar_transaction,
         evidence_hash=run.hash,
         stellar_tx_hash=run.stellar_transaction,
+        stellar_ledger_sequence=receipt["ledger"],
+        anchored_at=run.anchored_at,
+        anchor_status=receipt["anchor_status"],
+        verified=stellar_verified and hashes_match,
+        tx_hash=receipt["tx_hash"],
+        explorer_url=receipt["explorer_url"],
+        timestamp=receipt["timestamp"],
         stellar_verified=stellar_verified,
         verification_status=verification_status,
         run_details=_run_to_response(run),
@@ -357,11 +374,22 @@ def _run_to_response(run: Run) -> RunResponse:
         exit_code=run.exit_code,
         status=run.status,
         execution_time=run.execution_time,
+        is_interactive=run.is_interactive,
+        container_id=run.container_id,
+        vnc_port=run.vnc_port,
+        websockify_port=run.websockify_port,
+        session_token=None,
+        session_token_preview=_mask_session_token(run.session_token),
+        desktop_status=run.desktop_status,
+        last_heartbeat=run.last_heartbeat,
         created_at=run.created_at,
         hash=run.hash,
         stellar_transaction=run.stellar_transaction,
         evidence_hash=run.hash,
         stellar_tx_hash=run.stellar_transaction,
+        stellar_ledger_sequence=run.stellar_ledger_sequence,
+        anchored_at=run.anchored_at,
+        anchor_status=run.anchor_status,
         agent_name=run.agent.name if run.agent else None,
         user_name=run.user.name if run.user else None,
         user_stellar_wallet_address=run.user_stellar_wallet_address or (run.user.stellar_wallet_address if run.user else None),
@@ -391,6 +419,14 @@ def _routing_mode_from_run(run: Run) -> str:
         return "cloud_sandbox"
 
     return "local_engine"
+
+
+def _mask_session_token(session_token: str | None) -> str | None:
+    if not session_token:
+        return None
+    if len(session_token) <= 8:
+        return "****"
+    return f"{session_token[:4]}...{session_token[-4:]}"
 
 
 def _is_external_docker_cloud_candidate(run: Run) -> bool:

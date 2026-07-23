@@ -148,6 +148,7 @@ async def verify_stellar_transaction(
                 "memo_type": memo_type,
                 "memo": memo,
                 "memo_matches": memo_matches,
+                "ledger": tx.get("ledger"),
                 "created_at": tx.get("created_at", ""),
                 "source_account": tx.get("source_account", ""),
             }

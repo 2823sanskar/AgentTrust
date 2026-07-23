@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, String, Text, Float, DateTime, ForeignKey, func
+from sqlalchemy import JSON, Boolean, Integer, String, Text, Float, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,11 +30,27 @@ class Run(Base):
     exit_code: Mapped[int | None] = mapped_column(nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     execution_time: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_interactive: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    container_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    vnc_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    websockify_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    session_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    desktop_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="stopped", server_default="stopped"
+    )
+    last_heartbeat: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
     hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     stellar_transaction: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stellar_ledger_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    anchored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    anchor_status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending_anchor")
     user_stellar_wallet_address: Mapped[str | None] = mapped_column(String(56), nullable=True)
     user_stellar_wallet_network: Mapped[str | None] = mapped_column(String(20), nullable=True)
 

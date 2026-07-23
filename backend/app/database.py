@@ -25,7 +25,7 @@ def _database_engine_options(database_url: str) -> tuple[URL, dict[str, object]]
         connect_args["ssl"] = ssl_mode
         url = url.set(query=query)
 
-    if "pooler.supabase.com" in url.host:
+    if "pooler.supabase.com" in (url.host or ""):
         connect_args["statement_cache_size"] = 0
 
     return url, connect_args
@@ -81,6 +81,34 @@ async def init_db():
     import app.models  # noqa
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS stellar_ledger_sequence INTEGER"))
+        await conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS anchored_at TIMESTAMP WITH TIME ZONE"))
+        await conn.execute(
+            text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS anchor_status VARCHAR(32) NOT NULL DEFAULT 'pending_anchor'")
+        )
+        await conn.execute(
+            text("ALTER TABLE agents ADD COLUMN IF NOT EXISTS agent_type VARCHAR(32) NOT NULL DEFAULT 'prebuilt'")
+        )
+        await conn.execute(text("ALTER TABLE agents ADD COLUMN IF NOT EXISTS entrypoint_command TEXT"))
+        await conn.execute(text("ALTER TABLE agents ADD COLUMN IF NOT EXISTS required_env_vars JSONB"))
+        await conn.execute(text("ALTER TABLE agents ADD COLUMN IF NOT EXISTS source_repo_url VARCHAR(500)"))
+        await conn.execute(
+            text("UPDATE agents SET agent_type = 'custom_docker' WHERE provider = 'external_docker' AND agent_type = 'prebuilt'")
+        )
+        await conn.execute(
+            text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS is_interactive BOOLEAN NOT NULL DEFAULT false")
+        )
+        await conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS container_id VARCHAR(64)"))
+        await conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS vnc_port INTEGER"))
+        await conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS websockify_port INTEGER"))
+        await conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS session_token VARCHAR(255)"))
+        await conn.execute(
+            text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS desktop_status VARCHAR(32) NOT NULL DEFAULT 'stopped'")
+        )
+        await conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS last_heartbeat TIMESTAMP WITH TIME ZONE"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_runs_is_interactive ON runs (is_interactive)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_runs_desktop_status ON runs (desktop_status)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_runs_last_heartbeat ON runs (last_heartbeat)"))
 
 
 async def check_db_connection() -> None:

@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Integer, String, Text, DateTime, ForeignKey, func
+from sqlalchemy import JSON, Integer, String, Text, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,8 +24,12 @@ class Agent(Base):
     provider: Mapped[str] = mapped_column(String(50), nullable=False)  # openrouter, browser, external_docker
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    agent_type: Mapped[str] = mapped_column(String(32), nullable=False, default="prebuilt")
     docker_image: Mapped[str | None] = mapped_column(String(255), nullable=True)
     docker_command: Mapped[str | None] = mapped_column(Text, nullable=True)
+    entrypoint_command: Mapped[str | None] = mapped_column(Text, nullable=True)
+    required_env_vars: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    source_repo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
