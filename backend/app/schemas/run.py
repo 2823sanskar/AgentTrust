@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 class ExecuteRequest(BaseModel):
     agent_id: uuid.UUID
     task: str = Field(..., min_length=1, max_length=10000)
+    is_interactive: bool = False
+    vnc_port: Optional[int] = Field(default=None, ge=1024, le=65535)
+    websockify_port: Optional[int] = Field(default=None, ge=1024, le=65535)
 
 
 class RunResponse(BaseModel):

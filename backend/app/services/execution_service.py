@@ -7,6 +7,7 @@ import asyncio
 import uuid
 import time
 import logging
+import secrets
 from datetime import datetime, timezone
 
 from sqlalchemy import select, func
@@ -21,6 +22,12 @@ from app.services.ai_provider import execute_ai_provider
 from app.services.browser_agent import BrowserAgentExecutionError, execute_browser_agent
 from app.services.docker_sandbox import execute_docker_agent
 from app.services.vm_sandbox import execute_vm_sandbox_agent
+from app.services.desktop_orchestrator import (
+    DesktopOrchestrationError,
+    spawn_desktop_container,
+    wait_for_desktop_readiness,
+)
+from app.services.sandbox import get_desktop_container_config
 from app.services.trust_service import recalculate_trust_score
 from app.services.stellar_service import (
     TERMINAL_RUN_STATUSES,
@@ -39,7 +46,14 @@ AI_PROVIDER_TIMEOUT = 60
 
 
 async def execute_agent(
-    db: AsyncSession, agent_id: uuid.UUID, user_id: uuid.UUID, task: str
+    db: AsyncSession,
+    agent_id: uuid.UUID,
+    user_id: uuid.UUID,
+    task: str,
+    *,
+    is_interactive: bool = False,
+    vnc_port: int | None = None,
+    websockify_port: int | None = None,
 ) -> RunResponse:
     """
     Full execution pipeline (PRD §7.1):
@@ -62,6 +76,17 @@ async def execute_agent(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
     if agent.status != "active":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Agent is inactive")
+
+    if is_interactive:
+        return await _start_interactive_desktop_run(
+            db,
+            agent,
+            agent_id,
+            user_id,
+            task,
+            vnc_port=vnc_port,
+            websockify_port=websockify_port,
+        )
 
     user_result = await db.execute(select(User).where(User.id == user_id))
     user = user_result.scalar_one_or_none()
@@ -241,6 +266,107 @@ async def get_run(
             detail="Cannot view another user's execution run",
         )
     return _run_to_response(run)
+
+
+async def _start_interactive_desktop_run(
+    db: AsyncSession,
+    agent: Agent,
+    agent_id: uuid.UUID,
+    user_id: uuid.UUID,
+    task: str,
+    *,
+    vnc_port: int | None,
+    websockify_port: int | None,
+) -> RunResponse:
+    run_id = uuid.uuid4()
+    created_at = datetime.now(timezone.utc)
+    desktop_config = get_desktop_container_config()
+    session_token = secrets.token_urlsafe(24)
+    selected_vnc_port = vnc_port or desktop_config.vnc_port
+    selected_websockify_port = websockify_port or desktop_config.websocket_port
+
+    run = Run(
+        id=run_id,
+        agent_id=agent_id,
+        user_id=user_id,
+        task=task,
+        response="Interactive desktop session is starting.",
+        action_log=[
+            {
+                "step": 1,
+                "action": "Interactive desktop session requested",
+                "target": desktop_config.image,
+                "status": "pending",
+                "note": f"agent={agent.name}",
+            }
+        ],
+        status="pending",
+        execution_time=None,
+        created_at=created_at,
+        hash=None,
+        stellar_transaction=None,
+        stellar_ledger_sequence=None,
+        anchored_at=None,
+        anchor_status="pending_anchor",
+        is_interactive=True,
+        vnc_port=selected_vnc_port,
+        websockify_port=selected_websockify_port,
+        session_token=session_token,
+        desktop_status="pending",
+        last_heartbeat=created_at,
+    )
+    db.add(run)
+    await db.flush()
+
+    try:
+        metadata = await spawn_desktop_container(
+            str(run_id),
+            session_token,
+            selected_vnc_port,
+            selected_websockify_port,
+        )
+        await wait_for_desktop_readiness(str(metadata["container_id"]))
+        run.container_id = str(metadata["container_id"])
+        run.desktop_status = "running"
+        run.response = "Interactive desktop session is running."
+        run.action_log = [
+            *(run.action_log or []),
+            {
+                "step": 2,
+                "action": "Desktop container started",
+                "target": metadata.get("container_name") or metadata["container_id"],
+                "status": "success",
+                "note": (
+                    f"vnc_port={selected_vnc_port}, "
+                    f"websockify_port={selected_websockify_port}"
+                ),
+            },
+        ]
+        db.add(run)
+        await db.flush()
+        await db.refresh(run)
+        return _run_to_response(run)
+    except DesktopOrchestrationError as exc:
+        logger.error("Interactive desktop spawn failed for run %s: %s", run_id, exc)
+        run.desktop_status = "failed"
+        run.status = "failure"
+        run.response = f"Interactive desktop startup failed: {exc}"
+        run.action_log = [
+            *(run.action_log or []),
+            {
+                "step": 2,
+                "action": "Desktop container startup failed",
+                "target": desktop_config.image,
+                "status": "failure",
+                "note": str(exc),
+            },
+        ]
+        db.add(run)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Interactive desktop container could not be started.",
+        ) from exc
 
 
 async def list_runs(

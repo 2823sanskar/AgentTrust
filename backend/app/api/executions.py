@@ -31,7 +31,13 @@ async def execute(
 ):
     """Execute an AI agent with a task. Triggers the full execution pipeline."""
     return await execution_service.execute_agent(
-        db, data.agent_id, current_user.id, data.task
+        db,
+        data.agent_id,
+        current_user.id,
+        data.task,
+        is_interactive=data.is_interactive,
+        vnc_port=data.vnc_port,
+        websockify_port=data.websockify_port,
     )
 
 
