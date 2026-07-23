@@ -17,3 +17,4 @@ slowapi>=0.1.9
 email-validator>=2.0
 playwright>=1.49,<2.0
 docker>=7.1,<8.0
+websockets>=15.0,<16.0

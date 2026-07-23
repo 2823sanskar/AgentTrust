@@ -90,8 +90,8 @@ def _spawn_desktop_container_sync(
             auto_remove=False,
             environment=environment,
             ports={
-                f"{config.vnc_port}/tcp": int(vnc_port),
-                f"{config.websocket_port}/tcp": int(websockify_port),
+                f"{config.vnc_port}/tcp": ("127.0.0.1", int(vnc_port)),
+                f"{config.websocket_port}/tcp": ("127.0.0.1", int(websockify_port)),
             },
             mem_limit=config.memory_limit,
             nano_cpus=int(float(config.cpu_limit) * 1_000_000_000),

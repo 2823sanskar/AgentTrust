@@ -41,17 +41,47 @@ type ScaleMode = "fit" | "native";
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10_000];
 
-function buildWebsocketUrl(connectInfo: DesktopConnectInfo, hostOverride?: string): string {
+function resolveProxyOrigin(hostOverride?: string): string {
   if (typeof window === "undefined") return "";
-  if (!connectInfo.websockify_port) return "";
 
   const explicitHost = hostOverride || process.env.NEXT_PUBLIC_DESKTOP_WS_HOST || "";
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
-  const parsedBase = new URL(baseUrl, window.location.origin);
-  const host = explicitHost || parsedBase.hostname || window.location.hostname;
-  const protocol = parsedBase.protocol === "https:" || window.location.protocol === "https:" ? "wss:" : "ws:";
+  const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  const rawOrigin = explicitHost || configuredApiUrl || window.location.origin;
 
-  return `${protocol}//${host}:${connectInfo.websockify_port}`;
+  if (/^wss?:\/\//i.test(rawOrigin)) {
+    const parsed = new URL(rawOrigin);
+    parsed.protocol = parsed.protocol === "wss:" ? "https:" : "http:";
+    return parsed.origin;
+  }
+  if (/^https?:\/\//i.test(rawOrigin)) {
+    return new URL(rawOrigin).origin;
+  }
+  if (rawOrigin.startsWith("/")) {
+    return window.location.origin;
+  }
+  if (!explicitHost && !configuredApiUrl && window.location.port === "3000") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+
+  const protocol = window.location.protocol || "http:";
+  return `${protocol}//${rawOrigin.replace(/\/+$/, "")}`;
+}
+
+function buildWebsocketUrl(
+  runId: string,
+  connectInfo: DesktopConnectInfo,
+  hostOverride?: string,
+): string {
+  if (typeof window === "undefined") return "";
+  if (!connectInfo.session_token) return "";
+
+  const proxyOrigin = resolveProxyOrigin(hostOverride);
+  const parsedOrigin = new URL(proxyOrigin);
+  const protocol = parsedOrigin.protocol === "https:" ? "wss:" : "ws:";
+  const encodedRunId = encodeURIComponent(runId);
+  const encodedToken = encodeURIComponent(connectInfo.session_token);
+
+  return `${protocol}//${parsedOrigin.host}/api/v1/desktop/ws/${encodedRunId}?token=${encodedToken}`;
 }
 
 export function DesktopViewer({
@@ -79,8 +109,8 @@ export function DesktopViewer({
   const [reconnectNonce, setReconnectNonce] = useState(0);
 
   const websocketUrl = useMemo(
-    () => (connectInfo ? buildWebsocketUrl(connectInfo, hostOverride) : ""),
-    [connectInfo, hostOverride],
+    () => (connectInfo ? buildWebsocketUrl(runId, connectInfo, hostOverride) : ""),
+    [connectInfo, hostOverride, runId],
   );
 
   const cleanupRfb = useCallback(() => {
@@ -103,7 +133,7 @@ export function DesktopViewer({
     try {
       const nextConnectInfo = await api.getDesktopConnectInfo(runId);
       setConnectInfo(nextConnectInfo);
-      if (!nextConnectInfo.websockify_port || !nextConnectInfo.session_token) {
+      if (!nextConnectInfo.session_token) {
         throw new Error("Desktop connection is not ready yet.");
       }
     } catch (err) {
