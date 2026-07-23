@@ -2,6 +2,7 @@
 
 import time
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -10,6 +11,48 @@ from app.config import settings
 
 SANDBOX_HEALTH_TIMEOUT_SECONDS = 3
 FALLBACK_STDERR = "Sandbox worker unreachable. System operating in local fallback mode."
+DESKTOP_CONTAINER_IMAGE = "agenttrust/desktop-environment:latest"
+DESKTOP_CONTAINER_USER = "agentuser"
+DESKTOP_CONTAINER_WORKDIR = "/home/agentuser/workspace"
+DESKTOP_DISPLAY = ":1"
+DESKTOP_VNC_PORT = 5901
+DESKTOP_WEBSOCKET_PORT = 6080
+DESKTOP_SCREEN_GEOMETRY = "1920x1080x24"
+DESKTOP_CPU_LIMIT = "2.0"
+DESKTOP_MEMORY_LIMIT = "4g"
+DESKTOP_STORAGE_LIMIT = "10G"
+
+
+@dataclass(frozen=True)
+class DesktopContainerConfig:
+    """Static defaults for the interactive desktop image used by later orchestration."""
+
+    image: str = DESKTOP_CONTAINER_IMAGE
+    user: str = DESKTOP_CONTAINER_USER
+    workdir: str = DESKTOP_CONTAINER_WORKDIR
+    display: str = DESKTOP_DISPLAY
+    vnc_port: int = DESKTOP_VNC_PORT
+    websocket_port: int = DESKTOP_WEBSOCKET_PORT
+    screen_geometry: str = DESKTOP_SCREEN_GEOMETRY
+    cpu_limit: str = DESKTOP_CPU_LIMIT
+    memory_limit: str = DESKTOP_MEMORY_LIMIT
+    storage_limit: str = DESKTOP_STORAGE_LIMIT
+
+    def environment(self, *, session_token: str | None = None) -> dict[str, str]:
+        env = {
+            "DISPLAY": self.display,
+            "VNC_PORT": str(self.vnc_port),
+            "NO_VNC_PORT": str(self.websocket_port),
+            "SCREEN_GEOMETRY": self.screen_geometry,
+        }
+        if session_token:
+            env["AGENTTRUST_DESKTOP_TOKEN"] = session_token
+        return env
+
+
+def get_desktop_container_config() -> DesktopContainerConfig:
+    """Return desktop container defaults without spawning or mutating runtime state."""
+    return DesktopContainerConfig()
 
 
 def _sandbox_worker_url(worker_url: str | None = None) -> str:
