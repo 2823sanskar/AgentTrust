@@ -37,7 +37,35 @@ class SandboxSessionResponse(BaseModel):
 class SandboxSessionStatusUpdate(BaseModel):
     desktop_status: Optional[str] = Field(
         default=None,
-        pattern="^(pending|running|stopping|stopped|failed)$",
+        pattern="^(pending|running|stopping|stopped|failed|timed_out)$",
     )
     last_heartbeat: Optional[datetime] = None
     container_id: Optional[str] = Field(default=None, max_length=64)
+
+
+class DesktopSessionStatusResponse(BaseModel):
+    run_id: uuid.UUID
+    desktop_status: str
+    vnc_port: Optional[int] = None
+    websockify_port: Optional[int] = None
+    container_id: Optional[str] = None
+    created_at: datetime
+    last_heartbeat: Optional[datetime] = None
+
+
+class DesktopConnectInfoResponse(BaseModel):
+    run_id: uuid.UUID
+    websockify_port: Optional[int] = None
+    session_token: Optional[str] = None
+    status: str
+
+
+class DesktopHeartbeatResponse(BaseModel):
+    status: str = "ok"
+    last_heartbeat: datetime
+
+
+class DesktopStopResponse(BaseModel):
+    status: str
+    desktop_status: str
+    container_stopped: bool

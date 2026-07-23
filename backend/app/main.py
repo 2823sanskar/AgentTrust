@@ -4,7 +4,8 @@ Blockchain-backed execution verification and reputation platform for AI agents.
 """
 
 import logging
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -15,8 +16,9 @@ from sqlalchemy.exc import DatabaseError, OperationalError, SQLAlchemyError
 
 from app.config import settings
 from app.database import DATABASE_UNAVAILABLE_DETAIL, check_db_connection, engine, init_db
-from app.api import auth, agents, executions, trust, verify, sandbox
+from app.api import auth, agents, executions, trust, verify, sandbox, desktop
 from app.rate_limit import limiter
+from app.services.cleanup_service import run_desktop_cleanup_loop
 from app.services.stellar_service import ensure_stellar_anchor_account
 
 # Configure logging
@@ -32,8 +34,12 @@ async def lifespan(app: FastAPI):
     settings.validate_production()
     logger.info(f"Starting {settings.APP_NAME} backend...")
     logger.info("Connecting to database: %s", engine.url.render_as_string(hide_password=True))
+    db_ready = False
+    cleanup_stop_event = asyncio.Event()
+    cleanup_task: asyncio.Task | None = None
     try:
         await check_db_connection()
+        db_ready = True
         logger.info("Database connection verified.")
         if settings.DB_AUTO_CREATE_TABLES:
             await init_db()
@@ -50,12 +56,20 @@ async def lifespan(app: FastAPI):
             "will return HTTP 503 until the connection is fixed."
         )
 
+    if db_ready:
+        cleanup_task = asyncio.create_task(run_desktop_cleanup_loop(cleanup_stop_event))
+
     if settings.STELLAR_NETWORK.lower() != "mainnet" or settings.STELLAR_SECRET_KEY:
         await ensure_stellar_anchor_account()
 
     try:
         yield
     finally:
+        if cleanup_task:
+            cleanup_stop_event.set()
+            cleanup_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await cleanup_task
         await engine.dispose()
         logger.info(f"Shutting down {settings.APP_NAME} backend...")
 
@@ -107,6 +121,7 @@ app.include_router(executions.router)
 app.include_router(trust.router)
 app.include_router(verify.router)
 app.include_router(sandbox.router)
+app.include_router(desktop.router)
 
 
 @app.get("/")
