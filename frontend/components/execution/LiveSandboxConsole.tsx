@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Check,
   Clipboard,
@@ -13,7 +14,19 @@ import {
   WifiOff,
 } from "lucide-react";
 import { ActionLogEntry, Run } from "@/types";
-import { DesktopViewer } from "@/components/sandbox/DesktopViewer";
+import type { DesktopViewerProps } from "@/components/sandbox/DesktopViewer";
+
+const DesktopViewer = dynamic<DesktopViewerProps>(
+  () => import("@/components/sandbox/DesktopViewer").then((module) => module.DesktopViewer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full min-h-[420px] items-center justify-center bg-black p-4 font-mono text-xs uppercase text-emerald-200">
+        Loading desktop viewer...
+      </div>
+    ),
+  },
+);
 
 type ConsoleTab = "terminal" | "display";
 type StreamState = "idle" | "connecting" | "connected" | "retrying" | "closed" | "failed";
@@ -33,6 +46,7 @@ interface LiveSandboxConsoleProps {
   remoteDisplayUrl?: string | null;
   isInteractive?: boolean;
   onInteractiveSessionEnded?: () => void;
+  onInteractiveSessionComplete?: (run?: Run) => void;
 }
 
 const MAX_RECONNECTS = 5;
@@ -138,6 +152,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
   const [retryCount, setRetryCount] = useState(0);
   const [frameState, setFrameState] = useState<FrameState>("standby");
   const [frameRetryKey, setFrameRetryKey] = useState(0);
+  const [endedInteractiveRunId, setEndedInteractiveRunId] = useState<string | null>(null);
   const logWindowRef = useRef<HTMLDivElement | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,7 +163,12 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
     [props.remoteDisplayUrl],
   );
   const showRemoteFrame = Boolean(remoteDisplayUrl && props.agentProvider === "browser");
-  const showInteractiveDesktop = Boolean(props.isInteractive && props.runId);
+  const showInteractiveDesktop = Boolean(
+    props.isInteractive &&
+      props.runId &&
+      props.isActive &&
+      endedInteractiveRunId !== props.runId,
+  );
   const isCloudRoute = props.routingMode === "cloud_sandbox";
   const sseUrl = resolveStreamUrl(props.runId, props.streamUrl);
   const shouldStream = Boolean(sseUrl && (props.isActive || props.status === "pending"));
@@ -388,7 +408,14 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
         {showInteractiveDesktop && props.runId ? (
           <DesktopViewer
             runId={props.runId}
-            onSessionEnded={props.onInteractiveSessionEnded}
+            onSessionEnded={() => {
+              setEndedInteractiveRunId(props.runId || null);
+              props.onInteractiveSessionEnded?.();
+            }}
+            onSessionComplete={(run) => {
+              setEndedInteractiveRunId(props.runId || null);
+              props.onInteractiveSessionComplete?.(run);
+            }}
             className="h-full min-h-[420px] border-0 lg:min-h-full"
           />
         ) : showRemoteFrame ? (

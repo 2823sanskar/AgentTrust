@@ -121,6 +121,7 @@ export interface DesktopStopResponse {
   status: string;
   desktop_status: string;
   container_stopped: boolean;
+  run?: Run;
 }
 
 export interface ActionLogEntry {

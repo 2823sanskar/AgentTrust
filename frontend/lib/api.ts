@@ -35,6 +35,7 @@ export function isAuthExpiredError(error: unknown): error is ApiRequestError {
 const DEFAULT_REQUEST_TIMEOUT_MS = 45_000;
 const LIST_REQUEST_TIMEOUT_MS = 60_000;
 const EXECUTION_REQUEST_TIMEOUT_MS = 240_000;
+const DESKTOP_STOP_TIMEOUT_MS = 120_000;
 
 export function clearClientAuthStorage() {
   if (typeof window === "undefined") return;
@@ -318,6 +319,7 @@ class ApiClient {
     return this.request<import("@/types").DesktopStopResponse>(
       `/v1/desktop/${runId}/stop`,
       { method: "POST" },
+      DESKTOP_STOP_TIMEOUT_MS,
     );
   }
 }

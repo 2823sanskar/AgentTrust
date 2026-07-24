@@ -6,6 +6,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.schemas.run import RunResponse
+
 
 class SandboxSessionCreate(BaseModel):
     agent_id: Optional[uuid.UUID] = None
@@ -69,3 +71,4 @@ class DesktopStopResponse(BaseModel):
     status: str
     desktop_status: str
     container_stopped: bool
+    run: Optional[RunResponse] = None

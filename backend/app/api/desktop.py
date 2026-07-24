@@ -23,12 +23,15 @@ from app.schemas.sandbox import (
     DesktopSessionStatusResponse,
     DesktopStopResponse,
 )
+from app.schemas.run import RunResponse
 from app.services.desktop_orchestrator import (
     DesktopOrchestrationError,
     capture_desktop_container_logs,
     stop_desktop_container,
 )
 from app.services.port_manager import release_desktop_ports
+from app.services.stellar_service import anchor_run_to_stellar
+from app.utils.hashing import compute_execution_hash
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +141,7 @@ async def stop_desktop_session(
     run.desktop_status = "stopped"
     run.status = "success"
     run.response = "Interactive desktop session completed successfully."
+    run.exit_code = 0
     run.last_heartbeat = datetime.now(timezone.utc)
     if run.created_at:
         created_at = run.created_at
@@ -155,13 +159,33 @@ async def stop_desktop_session(
             "note": "Container stopped by session owner.",
         },
     ]
+    run.hash = compute_execution_hash(
+        run_id=run.id,
+        agent_id=run.agent_id,
+        user_id=run.user_id,
+        task=run.task,
+        response=run.response,
+        action_log=run.action_log,
+        container_stdout=run.container_stdout,
+        container_stderr=run.container_stderr,
+        exit_code=run.exit_code,
+        status=run.status,
+        execution_time=run.execution_time,
+        created_at=run.created_at,
+    )
     db.add(run)
     await db.flush()
+    try:
+        run = await anchor_run_to_stellar(db, run.id)
+    except Exception as exc:
+        logger.warning("Interactive desktop Stellar anchoring deferred for run %s: %s", run.id, exc)
+    await db.refresh(run)
 
     return DesktopStopResponse(
         status="ok",
         desktop_status=run.desktop_status,
         container_stopped=container_stopped,
+        run=RunResponse.model_validate(run),
     )
 
 

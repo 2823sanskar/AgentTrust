@@ -57,6 +57,27 @@ export default function ExecuteAgentPage() {
     }
   };
 
+  const handleInteractiveSessionComplete = async (updatedRun?: Run) => {
+    setExecuting(false);
+    if (elapsedRef.current) {
+      clearInterval(elapsedRef.current);
+      elapsedRef.current = null;
+    }
+
+    if (updatedRun) {
+      setResult(updatedRun);
+      return;
+    }
+
+    if (!result?.id) return;
+    try {
+      const refreshedRun = await api.getRun(result.id);
+      setResult(refreshedRun);
+    } catch (err) {
+      console.error("Failed to refresh completed interactive run:", err);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -188,6 +209,7 @@ export default function ExecuteAgentPage() {
                   routingMode={result?.routing_mode || "cloud_sandbox"}
                   elapsedSeconds={elapsed}
                   isInteractive={result?.is_interactive}
+                  onInteractiveSessionComplete={handleInteractiveSessionComplete}
                 />
               </div>
 

@@ -1,20 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import RFB from "@novnc/novnc";
 import { Loader2 } from "lucide-react";
 import { api, getErrorMessage } from "@/lib/api";
-import { DesktopConnectInfo } from "@/types";
+import { DesktopConnectInfo, Run } from "@/types";
 import {
   DesktopToolbar,
   DesktopToolbarConnectionState,
   SpecialKeyCombination,
 } from "@/components/sandbox/DesktopToolbar";
 
-interface DesktopViewerProps {
+export interface DesktopViewerProps {
   runId: string;
   hostOverride?: string;
   onSessionEnded?: () => void;
+  onSessionComplete?: (run?: Run) => void;
   className?: string;
 }
 
@@ -30,6 +30,8 @@ type ConnectionState =
   | "stopped";
 type ScaleMode = "fit" | "native";
 type QualityPreset = 2 | 5 | 8;
+type RFBConstructor = typeof import("@novnc/novnc").default;
+type RFBInstance = InstanceType<RFBConstructor>;
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10_000];
@@ -104,11 +106,12 @@ export function DesktopViewer({
   runId,
   hostOverride,
   onSessionEnded,
+  onSessionComplete,
   className = "",
 }: DesktopViewerProps) {
   const screenRef = useRef<HTMLDivElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const rfbRef = useRef<RFB | null>(null);
+  const rfbRef = useRef<RFBInstance | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectAttemptRef = useRef(0);
@@ -126,6 +129,7 @@ export function DesktopViewer({
   const [showClipboardFallback, setShowClipboardFallback] = useState(false);
   const [error, setError] = useState("");
   const [reconnectNonce, setReconnectNonce] = useState(0);
+  const [RFBClass, setRFBClass] = useState<RFBConstructor | null>(null);
 
   const websocketUrl = useMemo(
     () => (connectInfo ? buildWebsocketUrl(runId, connectInfo, hostOverride) : ""),
@@ -161,14 +165,30 @@ export function DesktopViewer({
     }
   }, [runId]);
 
+  useEffect(() => {
+    let active = true;
+    import("@novnc/novnc")
+      .then((module) => {
+        if (active) setRFBClass(() => module.default);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setConnectionState("failed");
+        setError(getErrorMessage(err, "Could not load desktop viewer."));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const connect = useCallback(() => {
-    if (!screenRef.current || !websocketUrl || !connectInfo?.session_token) return;
+    if (!screenRef.current || !websocketUrl || !connectInfo?.session_token || !RFBClass) return;
 
     cleanupRfb();
     setConnectionState(reconnectAttemptRef.current > 0 ? "reconnecting" : "connecting");
     setError("");
 
-    const rfb = new RFB(screenRef.current, websocketUrl, {
+    const rfb = new RFBClass(screenRef.current, websocketUrl, {
       credentials: { password: connectInfo.session_token },
       shared: true,
     });
@@ -241,7 +261,16 @@ export function DesktopViewer({
         });
       }
     });
-  }, [cleanupRfb, connectInfo, onSessionEnded, qualityLevel, scaleMode, viewOnly, websocketUrl]);
+  }, [
+    RFBClass,
+    cleanupRfb,
+    connectInfo,
+    onSessionEnded,
+    qualityLevel,
+    scaleMode,
+    viewOnly,
+    websocketUrl,
+  ]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -318,9 +347,10 @@ export function DesktopViewer({
     setError("");
     try {
       cleanupRfb();
-      await api.stopDesktopSession(runId);
+      const stopResult = await api.stopDesktopSession(runId);
       setConnectionState("stopped");
       setError("Desktop session ended.");
+      onSessionComplete?.(stopResult.run);
       onSessionEnded?.();
     } catch (err) {
       setConnectionState("failed");
