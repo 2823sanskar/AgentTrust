@@ -4,6 +4,7 @@ Auth API endpoints: registration, login, current user.
 
 import base64
 import binascii
+import hashlib
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,8 @@ from app.schemas.user import (
 from app.services import auth_service
 
 router = APIRouter(prefix="/api", tags=["Authentication"])
+
+STELLAR_SIGNED_MESSAGE_PREFIX = b"Stellar Signed Message:\n"
 
 
 def _wallet_signature_candidates(signature: str) -> list[bytes]:
@@ -44,15 +47,23 @@ def _wallet_signature_candidates(signature: str) -> list[bytes]:
     return unique
 
 
+def _wallet_message_payloads(message: str) -> list[bytes]:
+    message_bytes = message.encode("utf-8")
+    sep53_payload = hashlib.sha256(
+        STELLAR_SIGNED_MESSAGE_PREFIX + message_bytes
+    ).digest()
+    return [sep53_payload, message_bytes]
+
+
 def _verify_wallet_signature(public_key: str, message: str, signature: str) -> None:
     keypair = Keypair.from_public_key(public_key)
-    message_bytes = message.encode("utf-8")
-    for candidate in _wallet_signature_candidates(signature):
-        try:
-            keypair.verify(message_bytes, candidate)
-            return
-        except Exception:
-            continue
+    for payload in _wallet_message_payloads(message):
+        for candidate in _wallet_signature_candidates(signature):
+            try:
+                keypair.verify(payload, candidate)
+                return
+            except Exception:
+                continue
     raise ValueError("Invalid wallet ownership signature")
 
 
