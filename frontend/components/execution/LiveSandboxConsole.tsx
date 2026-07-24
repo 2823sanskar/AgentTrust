@@ -21,7 +21,7 @@ const DesktopViewer = dynamic<DesktopViewerProps>(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full min-h-[420px] items-center justify-center bg-black p-4 font-mono text-xs uppercase text-emerald-200">
+      <div className="flex h-full min-h-[360px] items-center justify-center bg-black p-4 font-mono text-xs uppercase text-emerald-200">
         Loading desktop viewer...
       </div>
     ),
@@ -45,6 +45,7 @@ interface LiveSandboxConsoleProps {
   elapsedSeconds?: number;
   remoteDisplayUrl?: string | null;
   isInteractive?: boolean;
+  desktopStatus?: string | null;
   onInteractiveSessionEnded?: () => void;
   onInteractiveSessionComplete?: (run?: Run) => void;
 }
@@ -89,6 +90,9 @@ function buildLogLines({
   agentProvider,
   routingMode,
   elapsedSeconds,
+  runId,
+  isInteractive,
+  desktopStatus,
 }: LiveSandboxConsoleProps): string[] {
   const lines = [
     "[SYSTEM] AgentTrust sandbox console initialized",
@@ -96,7 +100,22 @@ function buildLogLines({
     `[MODE] ${agentProvider || "agent"} execution workspace`,
   ];
 
-  if (isActive) {
+  if (isInteractive && runId && desktopStatus === "pending") {
+    lines.push("[RUN] interactive desktop starting...");
+    lines.push("[STREAM] waiting for desktop telemetry packets...");
+  } else if (isInteractive && runId && desktopStatus === "running") {
+    lines.push("[RUN] active; streaming interactive desktop telemetry...");
+  } else if (isInteractive && runId && desktopStatus === "stopped") {
+    lines.push("[RUN] interactive desktop session completed");
+  } else if (isInteractive && runId && desktopStatus === "stopping") {
+    lines.push("[RUN] stopping interactive desktop session...");
+  } else if (
+    isInteractive &&
+    runId &&
+    (desktopStatus === "failed" || desktopStatus === "timed_out")
+  ) {
+    lines.push(`[RUN] interactive desktop session ${desktopStatus.replace("_", " ")}`);
+  } else if (isActive) {
     lines.push(`[RUN] execution active for ${elapsedSeconds || 0}s`);
     lines.push("[STREAM] waiting for worker telemetry packets...");
   } else if (status) {
@@ -133,6 +152,9 @@ function linesFromRun(run: Run): string[] {
     isActive: run.status === "pending",
     status: run.status,
     routingMode: run.routing_mode,
+    runId: run.id,
+    isInteractive: run.is_interactive,
+    desktopStatus: run.desktop_status,
   });
 }
 
@@ -153,6 +175,8 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
   const [frameState, setFrameState] = useState<FrameState>("standby");
   const [frameRetryKey, setFrameRetryKey] = useState(0);
   const [endedInteractiveRunId, setEndedInteractiveRunId] = useState<string | null>(null);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
+  const lastAutoFocusedRunIdRef = useRef<string | null>(null);
   const logWindowRef = useRef<HTMLDivElement | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -163,10 +187,10 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
     [props.remoteDisplayUrl],
   );
   const showRemoteFrame = Boolean(remoteDisplayUrl && props.agentProvider === "browser");
-  const showInteractiveDesktop = Boolean(
+  const desktopIsLive = Boolean(
     props.isInteractive &&
       props.runId &&
-      props.isActive &&
+      ["pending", "running"].includes(props.desktopStatus || "") &&
       endedInteractiveRunId !== props.runId,
   );
   const isCloudRoute = props.routingMode === "cloud_sandbox";
@@ -179,6 +203,8 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
     stderr: props.stderr || "",
     isActive: Boolean(props.isActive),
     status: props.status || "",
+    desktopStatus: props.desktopStatus || "",
+    runId: props.runId || "",
     streamCount: streamLines.length,
   });
 
@@ -207,6 +233,22 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
     });
     return () => cancelAnimationFrame(frame);
   }, [autoScroll, visibleLogLines]);
+
+  useEffect(() => {
+    if (!desktopIsLive || !props.runId) return;
+    if (lastAutoFocusedRunIdRef.current === props.runId) return;
+
+    lastAutoFocusedRunIdRef.current = props.runId;
+    const frame = requestAnimationFrame(() => {
+      setActiveTab("display");
+      workspaceRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [desktopIsLive, props.runId]);
 
   useEffect(() => {
     if (!shouldStream) {
@@ -330,7 +372,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
   }[effectiveStreamState];
 
   const terminalPanel = (
-    <section className="flex min-h-[420px] flex-col overflow-hidden border border-zinc-800 bg-zinc-900 lg:h-[640px]">
+    <section className="flex min-h-[240px] max-h-[280px] flex-col overflow-hidden border border-zinc-800 bg-zinc-900 lg:h-[640px] lg:max-h-none lg:min-h-[420px]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 font-mono text-[11px] uppercase text-cyan-200">
           <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(103,232,249,0.9)]" />
@@ -394,7 +436,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
   );
 
   const displayPanel = (
-    <section className="flex min-h-[420px] flex-col overflow-hidden border border-zinc-800 bg-zinc-900 lg:h-[640px]">
+    <section className="flex h-[min(70vh,640px)] min-h-[360px] flex-col overflow-hidden border border-zinc-800 bg-zinc-900 lg:h-[640px] lg:min-h-[420px]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-mono text-[11px] uppercase text-emerald-200">
           <Monitor className="h-3.5 w-3.5" />
@@ -405,7 +447,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
         </span>
       </div>
       <div className="relative min-h-0 flex-1 overflow-auto bg-black">
-        {showInteractiveDesktop && props.runId ? (
+        {desktopIsLive && props.runId ? (
           <DesktopViewer
             runId={props.runId}
             onSessionEnded={() => {
@@ -416,7 +458,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
               setEndedInteractiveRunId(props.runId || null);
               props.onInteractiveSessionComplete?.(run);
             }}
-            className="h-full min-h-[420px] border-0 lg:min-h-full"
+            className="h-full min-h-[360px] border-0 lg:min-h-full"
           />
         ) : showRemoteFrame ? (
           <>
@@ -445,7 +487,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
               src={remoteDisplayUrl}
               title="AgentTrust remote EC2 sandbox display"
               sandbox="allow-scripts allow-same-origin"
-              className="h-full min-h-[420px] w-full border-0 lg:min-h-full"
+              className="h-full min-h-[360px] w-full border-0 lg:min-h-full"
               onLoad={() => {
                 if (frameTimerRef.current) clearTimeout(frameTimerRef.current);
                 setFrameState("loaded");
@@ -453,7 +495,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
             />
           </>
         ) : (
-          <div className="flex h-full min-h-[420px] items-center justify-center p-4">
+          <div className="flex h-full min-h-[360px] items-center justify-center p-4">
             <div className="w-full max-w-xl border border-zinc-700 bg-zinc-950 p-4 font-mono text-xs leading-6 text-zinc-300 shadow-2xl shadow-black">
               <div className="border-b border-zinc-800 pb-2 text-cyan-200">EC2 SANDBOX REMOTE DISPLAY</div>
               <div className="pt-3">
@@ -470,7 +512,10 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
   );
 
   return (
-    <div className="overflow-hidden border border-zinc-800 bg-black p-3 text-white">
+    <div
+      ref={workspaceRef}
+      className="scroll-mt-24 overflow-hidden border border-zinc-800 bg-black p-3 text-white"
+    >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="font-mono text-xs uppercase text-zinc-500">Live execution workspace</p>
@@ -482,7 +527,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
         </div>
       </div>
 
-      <div className="mb-3 grid grid-cols-2 gap-2 md:hidden">
+      <div className="mb-3 grid grid-cols-2 gap-2 lg:hidden">
         <button
           type="button"
           onClick={() => setActiveTab("terminal")}
@@ -507,9 +552,9 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className={activeTab === "terminal" ? "block" : "hidden md:block"}>{terminalPanel}</div>
-        <div className={activeTab === "display" ? "block" : "hidden md:block"}>{displayPanel}</div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]">
+        <div className={activeTab === "display" ? "block" : "hidden lg:block"}>{displayPanel}</div>
+        <div className={activeTab === "terminal" ? "block" : "hidden lg:block"}>{terminalPanel}</div>
       </div>
     </div>
   );

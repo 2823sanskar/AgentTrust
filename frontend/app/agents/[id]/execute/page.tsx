@@ -209,6 +209,7 @@ export default function ExecuteAgentPage() {
                   routingMode={result?.routing_mode || "cloud_sandbox"}
                   elapsedSeconds={elapsed}
                   isInteractive={result?.is_interactive}
+                  desktopStatus={result?.desktop_status}
                   onInteractiveSessionComplete={handleInteractiveSessionComplete}
                 />
               </div>
