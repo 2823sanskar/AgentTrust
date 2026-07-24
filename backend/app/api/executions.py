@@ -81,6 +81,24 @@ async def stream_run(
     )
 
 
+@router.get("/v1/runs/{run_id}/logs")
+async def get_run_logs(
+    run_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetch captured stdout/stderr and action steps for an execution run."""
+    run = await execution_service.get_run(db, run_id, current_user.id)
+    return {
+        "run_id": str(run.id),
+        "status": run.status,
+        "desktop_status": run.desktop_status,
+        "stdout": run.container_stdout or "",
+        "stderr": run.container_stderr or "",
+        "action_log": run.action_log or [],
+    }
+
+
 @router.get("/runs", response_model=RunListResponse)
 async def list_runs(
     agent_id: Optional[uuid.UUID] = Query(None),

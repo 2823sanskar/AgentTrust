@@ -23,7 +23,9 @@ from app.services.docker_sandbox import execute_docker_agent
 from app.services.vm_sandbox import execute_vm_sandbox_agent
 from app.services.desktop_orchestrator import (
     DesktopOrchestrationError,
+    refresh_desktop_container_logs,
     spawn_desktop_container,
+    start_desktop_log_tail,
     stop_desktop_container,
     wait_for_desktop_readiness,
 )
@@ -346,6 +348,8 @@ async def _start_interactive_desktop_run(
         )
         container_id = str(metadata["container_id"])
         await wait_for_desktop_readiness(container_id)
+        await refresh_desktop_container_logs(container_id, str(run_id), tail=500)
+        start_desktop_log_tail(container_id, str(run_id))
         await release_desktop_ports(selected_vnc_port, selected_websockify_port)
         run.container_id = container_id
         run.desktop_status = "running"

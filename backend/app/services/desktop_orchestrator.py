@@ -6,12 +6,14 @@ import asyncio
 import logging
 import re
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import async_session
 from app.models.run import Run
 from app.services.sandbox import get_desktop_container_config
 
@@ -20,6 +22,9 @@ logger = logging.getLogger(__name__)
 ACTIVE_DESKTOP_STATUSES = {"pending", "running", "stopping"}
 DEFAULT_MAX_IDLE_MINUTES = 60
 DEFAULT_STARTUP_TIMEOUT_SECONDS = 30
+DESKTOP_LOG_POLL_SECONDS = 2
+DESKTOP_LOG_MAX_CHARS = 120_000
+_desktop_log_tail_tasks: dict[str, asyncio.Task[None]] = {}
 
 
 class DesktopOrchestrationError(RuntimeError):
@@ -186,6 +191,65 @@ def _get_container_status_sync(container_id: str) -> dict[str, Any]:
 async def get_container_status(container_id: str) -> dict[str, Any]:
     """Inspect Docker state and recent logs for a desktop container."""
     return await asyncio.to_thread(_get_container_status_sync, container_id)
+
+
+def _read_container_logs_sync(container_id: str, tail: int | str = "all") -> str:
+    client = _docker_client()
+    container = client.containers.get(container_id)
+    return _decode_logs(container.logs(stdout=True, stderr=True, tail=tail))
+
+
+async def refresh_desktop_container_logs(
+    container_id: str,
+    run_id: str,
+    *,
+    tail: int | str = "all",
+) -> str:
+    """Persist the latest Docker logs for an interactive desktop run."""
+    logs = await asyncio.to_thread(_read_container_logs_sync, container_id, tail)
+    if len(logs) > DESKTOP_LOG_MAX_CHARS:
+        logs = logs[-DESKTOP_LOG_MAX_CHARS:]
+
+    async with async_session() as db:
+        result = await db.execute(select(Run).where(Run.id == uuid.UUID(str(run_id))))
+        run = result.scalar_one_or_none()
+        if not run:
+            return logs
+        run.container_stdout = logs
+        db.add(run)
+        await db.commit()
+    return logs
+
+
+async def _tail_container_logs(container_id: str, run_id: str) -> None:
+    """Poll Docker logs into the run record while the desktop container is active."""
+    try:
+        while True:
+            try:
+                await refresh_desktop_container_logs(container_id, run_id, tail=500)
+                status_snapshot = await get_container_status(container_id)
+                if not status_snapshot.get("running"):
+                    return
+            except Exception as exc:
+                logger.info("Desktop log tail stopped for run %s: %s", run_id, exc)
+                return
+            await asyncio.sleep(DESKTOP_LOG_POLL_SECONDS)
+    finally:
+        _desktop_log_tail_tasks.pop(str(run_id), None)
+
+
+def start_desktop_log_tail(container_id: str, run_id: str) -> None:
+    """Start one in-process background Docker log tailer per run."""
+    key = str(run_id)
+    existing = _desktop_log_tail_tasks.get(key)
+    if existing and not existing.done():
+        return
+    try:
+        _desktop_log_tail_tasks[key] = asyncio.create_task(
+            _tail_container_logs(container_id, key)
+        )
+    except RuntimeError:
+        logger.warning("No running event loop available to tail desktop logs for run %s", run_id)
 
 
 async def wait_for_desktop_readiness(

@@ -34,11 +34,28 @@ type QualityPreset = 2 | 5 | 8;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10_000];
 const KEY_DOWN_UP_DELAY_MS = 40;
+const INTENTIONAL_DISCONNECT_CODES = new Set([1000, 1001, 4003]);
 const qualitySettings: Record<QualityPreset, { qualityLevel: number; compressionLevel: number }> = {
   2: { qualityLevel: 2, compressionLevel: 8 },
   5: { qualityLevel: 5, compressionLevel: 5 },
   8: { qualityLevel: 8, compressionLevel: 2 },
 };
+
+function isIntentionalDisconnect(event: Event, stoppedByUser: boolean): boolean {
+  if (stoppedByUser) return true;
+  const detail =
+    "detail" in event
+      ? (event as CustomEvent<{ clean?: boolean; code?: number; reason?: string }>).detail
+      : undefined;
+  const code = detail?.code;
+  const reason = detail?.reason || "";
+  return Boolean(
+    detail?.clean ||
+      (typeof code === "number" && INTENTIONAL_DISCONNECT_CODES.has(code)) ||
+      /code[:\s]+(1000|1001|4003)\b/i.test(reason) ||
+      /session (stopped|ended|terminated)/i.test(reason),
+  );
+}
 
 function resolveProxyOrigin(hostOverride?: string): string {
   if (typeof window === "undefined") return "";
@@ -171,9 +188,9 @@ export function DesktopViewer({
 
     rfb.addEventListener("disconnect", (event) => {
       rfbRef.current = null;
-      const clean = "detail" in event && (event as CustomEvent<{ clean?: boolean }>).detail?.clean;
-      if (stoppedByUserRef.current || clean) {
+      if (isIntentionalDisconnect(event, stoppedByUserRef.current)) {
         setConnectionState(stoppedByUserRef.current ? "stopped" : "disconnected");
+        setError(stoppedByUserRef.current ? "Desktop session ended." : "");
         onSessionEnded?.();
         return;
       }
@@ -300,9 +317,10 @@ export function DesktopViewer({
     setConnectionState("stopping");
     setError("");
     try {
-      await api.stopDesktopSession(runId);
       cleanupRfb();
+      await api.stopDesktopSession(runId);
       setConnectionState("stopped");
+      setError("Desktop session ended.");
       onSessionEnded?.();
     } catch (err) {
       setConnectionState("failed");
@@ -454,7 +472,10 @@ export function DesktopViewer({
               )}
               <p className="font-mono text-xs uppercase text-emerald-200">{statusLabel}</p>
               <p className="mt-2 text-sm text-zinc-400">
-                {error || "Preparing the interactive desktop stream."}
+                {error ||
+                  (connectionState === "stopped" || connectionState === "disconnected"
+                    ? "Desktop session ended."
+                    : "Preparing the interactive desktop stream.")}
               </p>
               {connectionState === "failed" && (
                 <button

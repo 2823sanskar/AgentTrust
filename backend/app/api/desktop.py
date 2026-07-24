@@ -25,6 +25,7 @@ from app.schemas.sandbox import (
 )
 from app.services.desktop_orchestrator import (
     DesktopOrchestrationError,
+    refresh_desktop_container_logs,
     stop_desktop_container,
 )
 from app.services.port_manager import release_desktop_ports
@@ -119,6 +120,10 @@ async def stop_desktop_session(
     container_stopped = True
     if run.container_id:
         try:
+            await refresh_desktop_container_logs(run.container_id, str(run.id), tail=500)
+        except DesktopOrchestrationError as exc:
+            logger.warning("Final desktop log capture failed for run %s: %s", run.id, exc)
+        try:
             container_stopped = await stop_desktop_container(run.container_id)
         except DesktopOrchestrationError as exc:
             run.desktop_status = "failed"
@@ -131,7 +136,22 @@ async def stop_desktop_session(
 
     await release_desktop_ports(run.vnc_port, run.websockify_port)
     run.desktop_status = "stopped"
+    run.status = "success"
+    run.response = "Interactive desktop session completed successfully."
     run.last_heartbeat = datetime.now(timezone.utc)
+    if run.created_at:
+        run.execution_time = round((run.last_heartbeat - run.created_at).total_seconds(), 4)
+    next_step = len(run.action_log or []) + 1
+    run.action_log = [
+        *(run.action_log or []),
+        {
+            "step": next_step,
+            "action": "Interactive desktop session stopped",
+            "target": run.container_id or "desktop-container",
+            "status": "success",
+            "note": "Container stopped by session owner.",
+        },
+    ]
     db.add(run)
     await db.flush()
 
