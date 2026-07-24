@@ -32,6 +32,10 @@ export function isAuthExpiredError(error: unknown): error is ApiRequestError {
   return error instanceof ApiRequestError && (error.status === 401 || error.status === 403);
 }
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 45_000;
+const LIST_REQUEST_TIMEOUT_MS = 60_000;
+const EXECUTION_REQUEST_TIMEOUT_MS = 240_000;
+
 export function clearClientAuthStorage() {
   if (typeof window === "undefined") return;
   try {
@@ -132,7 +136,7 @@ class ApiClient {
     let response: Response;
     let controller: AbortController | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const effectiveTimeoutMs = timeoutMs ?? 15_000;
+    const effectiveTimeoutMs = timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
     if (effectiveTimeoutMs) {
       controller = new AbortController();
@@ -148,9 +152,7 @@ class ApiClient {
       });
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
-        throw new Error(
-          "The request timed out. Docker and browser agent runs can take a few minutes - please try again."
-        );
+        throw new Error("The backend request timed out. Please retry in a moment.");
       }
       throw new Error("Cannot connect to AgentTrust. Please make sure the backend is running.");
     } finally {
@@ -232,7 +234,11 @@ class ApiClient {
     if (params?.page) searchParams.set("page", params.page.toString());
     if (params?.page_size) searchParams.set("page_size", params.page_size.toString());
     const qs = searchParams.toString();
-    return this.request<import("@/types").AgentListResponse>(`/agents${qs ? `?${qs}` : ""}`);
+    return this.request<import("@/types").AgentListResponse>(
+      `/agents${qs ? `?${qs}` : ""}`,
+      {},
+      LIST_REQUEST_TIMEOUT_MS,
+    );
   }
 
   async getAgent(id: string) {
@@ -263,7 +269,7 @@ class ApiClient {
     return this.request<import("@/types").Run>("/execute", {
       method: "POST",
       body: JSON.stringify(data),
-    }, 240_000);
+    }, EXECUTION_REQUEST_TIMEOUT_MS);
   }
 
   async getRun(id: string) {
@@ -276,7 +282,11 @@ class ApiClient {
     if (params?.page) searchParams.set("page", params.page.toString());
     if (params?.page_size) searchParams.set("page_size", params.page_size.toString());
     const qs = searchParams.toString();
-    return this.request<import("@/types").RunListResponse>(`/runs${qs ? `?${qs}` : ""}`);
+    return this.request<import("@/types").RunListResponse>(
+      `/runs${qs ? `?${qs}` : ""}`,
+      {},
+      LIST_REQUEST_TIMEOUT_MS,
+    );
   }
 
   // Trust

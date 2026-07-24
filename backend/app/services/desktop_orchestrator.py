@@ -221,6 +221,18 @@ async def refresh_desktop_container_logs(
     return logs
 
 
+async def capture_desktop_container_logs(
+    container_id: str,
+    *,
+    tail: int | str = "all",
+) -> str:
+    """Read Docker logs without writing to the database."""
+    logs = await asyncio.to_thread(_read_container_logs_sync, container_id, tail)
+    if len(logs) > DESKTOP_LOG_MAX_CHARS:
+        return logs[-DESKTOP_LOG_MAX_CHARS:]
+    return logs
+
+
 async def _tail_container_logs(container_id: str, run_id: str) -> None:
     """Poll Docker logs into the run record while the desktop container is active."""
     try:

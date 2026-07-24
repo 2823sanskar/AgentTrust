@@ -56,6 +56,7 @@ export default function DashboardPage() {
     avgTrust: 0,
     verifiedRuns: 0,
   });
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -66,11 +67,23 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     const loadData = async () => {
+      setLoadError("");
       try {
-        const [agentsRes, runsRes] = await Promise.all([
+        const [agentsResult, runsResult] = await Promise.allSettled([
           api.getAgents({ page_size: 50 }),
           api.getRuns({ page_size: 10 }),
         ]);
+
+        if (agentsResult.status === "rejected" && runsResult.status === "rejected") {
+          throw agentsResult.reason;
+        }
+
+        const agentsRes =
+          agentsResult.status === "fulfilled" ? agentsResult.value : { agents: [] };
+        const runsRes =
+          runsResult.status === "fulfilled"
+            ? runsResult.value
+            : { runs: [], total: 0 };
 
         const myAgents = agentsRes.agents.filter((a) => a.developer_id === user.id);
         setAgents(myAgents);
@@ -89,6 +102,7 @@ export default function DashboardPage() {
         });
       } catch (err) {
         console.error("Dashboard load error:", err);
+        setLoadError(err instanceof Error ? err.message : "Could not load dashboard data.");
       }
     };
     loadData();
@@ -121,6 +135,12 @@ export default function DashboardPage() {
         <div className="mb-6">
           <CloudStatusBar />
         </div>
+
+        {loadError && (
+          <div className="mb-6 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {loadError}
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
