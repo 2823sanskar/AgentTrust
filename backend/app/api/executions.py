@@ -4,12 +4,21 @@ Execution API endpoints: execute agents, list/view runs.
 
 import asyncio
 import json
+import logging
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import DatabaseError, InterfaceError, OperationalError, SQLAlchemyError
+
+try:
+    from asyncpg.exceptions import PostgresError
+except ImportError:  # pragma: no cover
+    class PostgresError(Exception):
+        """Fallback if asyncpg is not directly imported."""
+        pass
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -17,6 +26,8 @@ from app.models.user import User
 from app.schemas.run import ExecuteRequest, RunResponse, RunListResponse
 from app.services import execution_service
 from app.rate_limit import limiter, execution_rate_limit_key
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["Executions"])
 
@@ -52,6 +63,7 @@ async def get_run(
 
 
 @router.get("/runs/{run_id}/stream")
+@router.get("/v1/runs/{run_id}/stream")
 async def stream_run(
     run_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -61,7 +73,21 @@ async def stream_run(
 
     async def events():
         for _ in range(60):
-            run = await execution_service.get_run(db, run_id, current_user.id)
+            try:
+                run = await execution_service.get_run(db, run_id, current_user.id)
+            except (OperationalError, InterfaceError, DatabaseError, SQLAlchemyError, PostgresError, ConnectionError, OSError) as exc:
+                logger.error("Database connection error while streaming run %s: %s", run_id, exc)
+                yield f"data: {json.dumps({'error': 'Database temporarily unavailable, retrying...'})}\n\n"
+                await asyncio.sleep(1)
+                continue
+            except HTTPException as exc:
+                if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+                    logger.error("Database 503 error while streaming run %s: %s", run_id, exc.detail)
+                    yield f"data: {json.dumps({'error': 'Database temporarily unavailable, retrying...'})}\n\n"
+                    await asyncio.sleep(1)
+                    continue
+                raise
+
             payload = run.model_dump(mode="json")
             event_type = "complete" if run.status not in {"pending", "blocked"} else "snapshot"
             yield f"data: {json.dumps({'type': event_type, 'run': payload})}\n\n"

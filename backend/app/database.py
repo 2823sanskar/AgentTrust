@@ -3,16 +3,26 @@ Async SQLAlchemy engine and session factory.
 Uses asyncpg driver for PostgreSQL.
 """
 
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.exc import DatabaseError, OperationalError, SQLAlchemyError
+from sqlalchemy.exc import DatabaseError, InterfaceError, OperationalError, SQLAlchemyError
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import text
 from fastapi import HTTPException, status
 
+try:
+    from asyncpg.exceptions import PostgresError
+except ImportError:  # pragma: no cover
+    class PostgresError(Exception):
+        """Fallback if asyncpg is not directly imported."""
+        pass
+
 from app.config import settings
 
-DATABASE_UNAVAILABLE_DETAIL = "Database unavailable. Please verify connectivity or check backend logs."
+logger = logging.getLogger(__name__)
+
+DATABASE_UNAVAILABLE_DETAIL = "Database connection failed. Please check DATABASE_URL or DB status."
 
 def _database_engine_options(database_url: str) -> tuple[URL, dict[str, object]]:
     """Build asyncpg-compatible URL and SSL options for Supabase/PostgreSQL."""
@@ -36,11 +46,11 @@ database_url, database_connect_args = _database_engine_options(settings.DATABASE
 engine = create_async_engine(
     database_url,
     echo=settings.DEBUG,
-    pool_pre_ping=True,
+    pool_pre_ping=True,      # Re-tests dropped connections before executing queries
+    pool_recycle=300,        # Recycles stale connections every 5 mins
+    pool_timeout=10,         # Prevents hanging indefinitely on stalled DB queries
+    max_overflow=10,
     pool_size=settings.DB_POOL_SIZE,
-    max_overflow=settings.DB_MAX_OVERFLOW,
-    pool_timeout=settings.DB_POOL_TIMEOUT_SECONDS,
-    pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
     connect_args=database_connect_args,
 )
 
@@ -62,8 +72,9 @@ async def get_db() -> AsyncSession:
         try:
             yield session
             await session.commit()
-        except (ConnectionError, OSError, OperationalError, DatabaseError, SQLAlchemyError) as exc:
+        except (ConnectionError, OSError, OperationalError, InterfaceError, DatabaseError, SQLAlchemyError, PostgresError) as exc:
             await session.rollback()
+            logger.error("Database connection failure in get_db: %s", exc, exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=DATABASE_UNAVAILABLE_DETAIL,

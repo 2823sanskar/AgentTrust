@@ -12,7 +12,14 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy.exc import DatabaseError, OperationalError, SQLAlchemyError
+from sqlalchemy.exc import DatabaseError, InterfaceError, OperationalError, SQLAlchemyError
+
+try:
+    from asyncpg.exceptions import PostgresError
+except ImportError:  # pragma: no cover
+    class PostgresError(Exception):
+        """Fallback if asyncpg is not directly imported."""
+        pass
 
 from app.config import settings
 from app.database import DATABASE_UNAVAILABLE_DETAIL, check_db_connection, engine, init_db
@@ -87,10 +94,12 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.exception_handler(OperationalError)
+@app.exception_handler(InterfaceError)
 @app.exception_handler(DatabaseError)
 @app.exception_handler(SQLAlchemyError)
-async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
-    logger.exception("Database error while handling %s %s", request.method, request.url.path)
+@app.exception_handler(PostgresError)
+async def sqlalchemy_exception_handler(request: Request, exc: Exception):
+    logger.error("Database connection failure while handling %s %s: %s", request.method, request.url.path, exc, exc_info=True)
     return JSONResponse(
         status_code=503,
         content={"detail": DATABASE_UNAVAILABLE_DETAIL},
@@ -98,8 +107,9 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
 
 
 @app.exception_handler(ConnectionError)
-async def connection_exception_handler(request: Request, exc: ConnectionError):
-    logger.exception("Connection error while handling %s %s", request.method, request.url.path)
+@app.exception_handler(OSError)
+async def connection_exception_handler(request: Request, exc: Exception):
+    logger.error("Network connection error while handling %s %s: %s", request.method, request.url.path, exc, exc_info=True)
     return JSONResponse(
         status_code=503,
         content={"detail": DATABASE_UNAVAILABLE_DETAIL},
