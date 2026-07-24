@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 ACTIVE_DESKTOP_STATUSES = {"pending", "running", "stopping"}
 DEFAULT_MAX_IDLE_MINUTES = 60
-DEFAULT_STARTUP_TIMEOUT_SECONDS = 30
+DEFAULT_STARTUP_TIMEOUT_SECONDS = 90
 DESKTOP_LOG_POLL_SECONDS = 2
 DESKTOP_LOG_MAX_CHARS = 120_000
 _desktop_log_tail_tasks: dict[str, asyncio.Task[None]] = {}
@@ -281,6 +281,16 @@ async def wait_for_desktop_readiness(
             raise DesktopOrchestrationError("Desktop container exited before readiness")
         await asyncio.sleep(1)
 
+    # Container is still running but didn't emit the readiness string in time.
+    # If the container is alive we treat it as ready rather than failing the run.
+    if last_status and last_status.get("running"):
+        logger.warning(
+            "Desktop container %s did not emit readiness signal within %ds — "
+            "container is running, treating as ready.",
+            container_id,
+            timeout_seconds,
+        )
+        return last_status
     raise DesktopOrchestrationError(
         f"Desktop container did not become ready within {timeout_seconds}s"
     )
