@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Agent } from "@/types";
 import { Navbar } from "@/components/layout/navbar";
@@ -10,6 +11,7 @@ import { motion } from "framer-motion";
 import { Search, Bot } from "lucide-react";
 
 export default function AgentsPage() {
+  const searchParams = useSearchParams();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -17,6 +19,10 @@ export default function AgentsPage() {
   const [provider, setProvider] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 12;
+  const createdAgentName =
+    searchParams.get("registered") === "1" && typeof window !== "undefined"
+      ? sessionStorage.getItem("agenttrust:agent-created") || "Agent"
+      : null;
 
   const loadAgents = useCallback(async () => {
     setLoading(true);
@@ -47,6 +53,12 @@ export default function AgentsPage() {
           <p className="text-[#6b6257] mb-8">Discover and execute verified AI agents</p>
         </motion.div>
 
+        {createdAgentName && (
+          <div className="mb-6 rounded-[20px] border border-[#8fcac4] bg-[#d8f3f0] px-4 py-3 text-sm font-medium text-[#004e56]">
+            {createdAgentName} was registered successfully.
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="relative flex-1">
@@ -61,7 +73,7 @@ export default function AgentsPage() {
             />
           </div>
           <div className="flex gap-2">
-            {["", "openrouter", "browser"].map((p) => (
+            {["", "openrouter", "browser", "external_docker"].map((p) => (
               <button
                 key={p}
                 onClick={() => { setProvider(p); setPage(1); }}
@@ -71,7 +83,7 @@ export default function AgentsPage() {
                     : "bg-white border border-[#d9cfba] text-[#6b6257] hover:text-[#241c15] hover:border-[#241c15]"
                 }`}
               >
-                {p === "" ? "All" : p.charAt(0).toUpperCase() + p.slice(1)}
+                {p === "" ? "All" : p === "external_docker" ? "Docker" : p.charAt(0).toUpperCase() + p.slice(1)}
               </button>
             ))}
           </div>

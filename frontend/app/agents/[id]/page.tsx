@@ -68,6 +68,12 @@ export default function AgentDetailPage() {
     external_docker: "from-emerald-500 to-teal-500",
   };
 
+  const agentTypeLabel: Record<string, string> = {
+    prebuilt: "Prebuilt",
+    custom_docker: "Custom Docker",
+    custom_script: "Custom Script",
+  };
+
   return (
     <div className="min-h-screen bg-[#f6f1e7]">
       <Navbar />
@@ -85,11 +91,14 @@ export default function AgentDetailPage() {
                   <span className="text-xs text-[#6b6257] flex items-center gap-1">
                     <Bot className="h-3 w-3" /> {agent.model}
                   </span>
+                  <span className="rounded-full bg-[#f6f1e7] px-2 py-0.5 text-xs font-medium text-[#6b6257]">
+                    {agentTypeLabel[agent.agent_type] || agent.agent_type}
+                  </span>
                 </div>
                 <h1 className="text-3xl font-bold text-[#241c15] mb-2">{agent.name}</h1>
                 <p className="text-[#6b6257] mb-4">{agent.description || "No description"}</p>
                 {agent.provider === "external_docker" && (
-                  <div className="mb-4 grid gap-2 text-xs text-[#6b6257] sm:grid-cols-3">
+                  <div className="mb-4 grid gap-2 text-xs text-[#6b6257] sm:grid-cols-2">
                     <code className="rounded-lg border border-[#d9cfba] bg-black/20 px-3 py-2">
                       image: {agent.docker_image}
                     </code>
@@ -97,8 +106,18 @@ export default function AgentDetailPage() {
                       timeout: {agent.timeout_seconds || 60}s
                     </code>
                     <code className="rounded-lg border border-[#d9cfba] bg-black/20 px-3 py-2">
-                      command: {agent.docker_command || "image CMD"}
+                      entrypoint: {agent.entrypoint_command || agent.docker_command || "image CMD"}
                     </code>
+                    {agent.source_repo_url && (
+                      <code className="rounded-lg border border-[#d9cfba] bg-black/20 px-3 py-2">
+                        repo: {agent.source_repo_url}
+                      </code>
+                    )}
+                    {agent.required_env_vars && agent.required_env_vars.length > 0 && (
+                      <div className="rounded-lg border border-[#d9cfba] bg-black/20 px-3 py-2 sm:col-span-2">
+                        env: {agent.required_env_vars.join(", ")}
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="flex items-center gap-4 text-sm text-[#6b6257]">

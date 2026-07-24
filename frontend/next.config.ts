@@ -5,38 +5,38 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   async rewrites() {
     const awsWorkerUrl = process.env.NEXT_PUBLIC_AWS_SANDBOX_URL;
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+    const backendBase = backendUrl.replace(/\/$/, "");
+    const rewrites = [
+      {
+        source: "/api/:path*",
+        destination: `${backendBase}/api/:path*`,
+      },
+      {
+        source: "/health",
+        destination: `${backendBase}/health`,
+      },
+      {
+        source: "/docs",
+        destination: `${backendBase}/docs`,
+      },
+      {
+        source: "/openapi.json",
+        destination: `${backendBase}/openapi.json`,
+      },
+    ];
 
-    if (process.env.NODE_ENV === "production" && awsWorkerUrl) {
+    if (awsWorkerUrl) {
       return [
         {
           source: "/api/sandbox/:path*",
           destination: `${awsWorkerUrl.replace(/\/$/, "")}/api/sandbox/:path*`,
         },
+        ...rewrites,
       ];
     }
 
-    return [
-      {
-        source: "/api/:path*",
-        destination: "http://127.0.0.1:8000/api/:path*",
-      },
-      {
-        source: "/health",
-        destination: "http://127.0.0.1:8000/health",
-      },
-      {
-        source: "/docs",
-        destination: "http://127.0.0.1:8000/docs",
-      },
-      {
-        source: "/openapi.json",
-        destination: "http://127.0.0.1:8000/openapi.json",
-      },
-      {
-        source: "/api/sandbox/:path*",
-        destination: "http://127.0.0.1:8000/api/sandbox/:path*",
-      },
-    ];
+    return rewrites;
   },
 };
 

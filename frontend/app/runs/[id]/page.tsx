@@ -113,11 +113,14 @@ export default function RunDetailPage() {
 
           <div className="mb-4">
             <LiveSandboxConsole
+              runId={run.id}
               actionLog={run.action_log}
               stdout={run.container_stdout}
               stderr={run.container_stderr}
+              isActive={run.status === "pending" || run.desktop_status === "running"}
               status={run.status}
               routingMode={run.routing_mode}
+              isInteractive={run.is_interactive}
             />
           </div>
 

@@ -12,6 +12,7 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/profile") ||
     pathname.startsWith("/agents") ||
     pathname.startsWith("/runs");
+  // /verify/* and /api/verify/* remain public verification receipts.
 
   const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register");
 

@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import {
   ShieldCheck, ShieldAlert, ShieldX,
   ExternalLink, CheckCircle2, XCircle,
-  Copy, Check, Link2, Wallet
+  Copy, Check, Link2, Wallet, Clock, Bot, Hash, Fingerprint
 } from "lucide-react";
 
 const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
@@ -22,6 +22,7 @@ export default function VerifyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     api.verifyRun(runId)
@@ -36,6 +37,13 @@ export default function VerifyPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const copyPublicLink = () => {
+    const href = typeof window !== "undefined" ? window.location.href : `/verify/${runId}`;
+    navigator.clipboard.writeText(href);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   const statusConfig = {
     verified: {
       icon: ShieldCheck,
@@ -43,7 +51,8 @@ export default function VerifyPage() {
       bg: "bg-[#d8f3f0]",
       border: "border-[#8fcac4]",
       label: "Verified",
-      description: "This execution is cryptographically verified. The hash matches and is anchored on the Stellar blockchain.",
+      headline: "Cryptographically Verified",
+      description: "This execution hash matches AgentTrust records and is anchored on Stellar Testnet.",
     },
     tampered: {
       icon: ShieldX,
@@ -51,6 +60,7 @@ export default function VerifyPage() {
       bg: "bg-[#fbe7e7]",
       border: "border-[#efb4b4]",
       label: "Tampered",
+      headline: "Verification Failed",
       description: "WARNING: The recomputed hash does not match the stored hash. This execution record may have been modified.",
     },
     unanchored: {
@@ -59,7 +69,8 @@ export default function VerifyPage() {
       bg: "bg-[#fff4c4]",
       border: "border-[#e5c917]",
       label: "Unanchored",
-      description: "Hash matches but no blockchain proof was found. This execution is not yet anchored on-chain.",
+      headline: "Verification Pending",
+      description: "The local hash matches, but the Stellar receipt is pending or unavailable.",
     },
   };
 
@@ -90,7 +101,8 @@ export default function VerifyPage() {
 
   const config = statusConfig[result.verification_status];
   const StatusIcon = config.icon;
-  const stellarUrl = result.stellar_transaction ? stellarTxUrl(result.stellar_transaction) : null;
+  const stellarUrl = result.explorer_url || (result.stellar_transaction ? stellarTxUrl(result.stellar_transaction) : null);
+  const outputHash = result.stored_hash || result.computed_hash;
 
   return (
     <div className="min-h-screen bg-[#f6f1e7]">
@@ -98,7 +110,11 @@ export default function VerifyPage() {
       <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto">
         <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-[#241c15] mb-2">Execution Verification</h1>
+            <div className={`mx-auto mb-4 inline-flex items-center gap-2 rounded-full border ${config.border} ${config.bg} px-4 py-2 text-sm font-semibold ${config.color}`}>
+              <StatusIcon className="h-4 w-4" />
+              {config.headline}
+            </div>
+            <h1 className="text-2xl font-bold text-[#241c15] mb-2">AgentTrust Public Verification Receipt</h1>
             <p className="text-sm text-[#6b6257] font-mono">Run ID: {runId}</p>
           </div>
 
@@ -110,12 +126,31 @@ export default function VerifyPage() {
             className={`rounded-[24px] border ${config.border} ${config.bg} p-8 text-center mb-8`}
           >
             <StatusIcon className={`h-16 w-16 ${config.color} mx-auto mb-4`} />
-            <h2 className={`text-3xl font-bold ${config.color} mb-2`}>{config.label}</h2>
+            <h2 className={`text-3xl font-bold ${config.color} mb-2`}>{config.headline}</h2>
             <p className="text-[#6b6257] max-w-md mx-auto">{config.description}</p>
           </motion.div>
 
           {/* Verification Details */}
           <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-[20px] border border-[#d9cfba] bg-white p-5 shadow-sm">
+                <p className="mb-1 flex items-center gap-1 text-xs text-[#6b6257]"><Bot className="h-3.5 w-3.5" /> Agent ID</p>
+                <code className="break-all text-xs text-[#241c15]">{result.run_details.agent_id}</code>
+              </div>
+              <div className="rounded-[20px] border border-[#d9cfba] bg-white p-5 shadow-sm">
+                <p className="mb-1 flex items-center gap-1 text-xs text-[#6b6257]"><Fingerprint className="h-3.5 w-3.5" /> Execution ID</p>
+                <code className="break-all text-xs text-[#241c15]">{result.run_id}</code>
+              </div>
+              <div className="rounded-[20px] border border-[#d9cfba] bg-white p-5 shadow-sm">
+                <p className="mb-1 flex items-center gap-1 text-xs text-[#6b6257]"><Clock className="h-3.5 w-3.5" /> Run Duration</p>
+                <p className="text-sm font-semibold text-[#241c15]">{result.run_details.execution_time?.toFixed(3) || "0.000"}s</p>
+              </div>
+              <div className="rounded-[20px] border border-[#d9cfba] bg-white p-5 shadow-sm">
+                <p className="mb-1 flex items-center gap-1 text-xs text-[#6b6257]"><Hash className="h-3.5 w-3.5" /> SHA-256 Output Hash</p>
+                <code className="break-all text-xs text-[#004e56]">{outputHash}</code>
+              </div>
+            </div>
+
             {/* Hash Comparison */}
             <div className="rounded-[24px] border border-[#d9cfba] bg-white shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-[#e7ddc6]">
@@ -158,7 +193,7 @@ export default function VerifyPage() {
                 : "border-[#e5c917] bg-[#fff4c4]"
             }`}>
               <div className="px-5 py-3 border-b border-[#e7ddc6] flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-[#403b33]">Stellar Testnet Proof</span>
+                <span className="text-sm font-medium text-[#403b33]">Stellar Receipt</span>
                 <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs ${
                   result.stellar_verified
                     ? "bg-[#d8f3f0] text-[#004e56]"
@@ -171,11 +206,15 @@ export default function VerifyPage() {
               <div className="p-5 space-y-3">
                 <div>
                   <p className="text-xs text-[#6b6257] mb-1">Blockchain Transaction ID</p>
-                  {result.stellar_transaction ? (
+                  {result.tx_hash || result.stellar_transaction ? (
                     <div className="space-y-3">
                       <code className="block rounded-lg border border-[#d9cfba] bg-[#f6f1e7] p-3 text-xs text-[#004e56] font-mono break-all">
-                        {result.stellar_transaction}
+                        {result.tx_hash || result.stellar_transaction}
                       </code>
+                      <div className="grid grid-cols-1 gap-2 text-xs text-[#6b6257] sm:grid-cols-2">
+                        <p>Ledger: <span className="font-mono text-[#241c15]">{result.stellar_ledger_sequence || "pending"}</span></p>
+                        <p>Timestamp: <span className="font-mono text-[#241c15]">{result.timestamp ? new Date(result.timestamp).toLocaleString() : "pending"}</span></p>
+                      </div>
                       <a
                         href={stellarUrl ?? "#"}
                         target="_blank"
@@ -187,8 +226,8 @@ export default function VerifyPage() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </div>
-                  ) : (
-                    <p className="text-sm text-[#8b5e00]">No Stellar transaction was stored for this run.</p>
+                ) : (
+                  <p className="text-sm text-[#8b5e00]">No Stellar transaction was stored for this run.</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 pt-2 border-t border-[#e7ddc6]">
@@ -227,6 +266,23 @@ export default function VerifyPage() {
                   <p className="text-xs text-[#6b6257]">Timestamp</p>
                   <p className="text-[#241c15]">{new Date(result.run_details.created_at).toLocaleString()}</p>
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-[#d9cfba] bg-white shadow-sm p-5">
+              <h3 className="mb-3 text-sm font-medium text-[#403b33]">Public Share Link</h3>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <code className="min-w-0 flex-1 break-all rounded-lg border border-[#d9cfba] bg-[#f6f1e7] p-3 text-xs text-[#004e56]">
+                  {typeof window !== "undefined" ? window.location.href : `/verify/${runId}`}
+                </code>
+                <button
+                  type="button"
+                  onClick={copyPublicLink}
+                  className="inline-flex items-center justify-center gap-2 rounded-[16px] border border-[#241c15] bg-[#ffe01b] px-4 py-2 text-sm font-semibold text-[#241c15] hover:bg-[#f6d90b]"
+                >
+                  {copiedLink ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  Copy Link
+                </button>
               </div>
             </div>
 

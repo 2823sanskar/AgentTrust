@@ -29,6 +29,12 @@ const providerLabels: Record<string, string> = {
   external_docker: "Docker",
 };
 
+const agentTypeLabels: Record<string, string> = {
+  prebuilt: "Prebuilt",
+  custom_docker: "Custom Docker",
+  custom_script: "Custom Script",
+};
+
 export function AgentCard({ agent, index = 0 }: AgentCardProps) {
   return (
     <motion.div
@@ -42,7 +48,7 @@ export function AgentCard({ agent, index = 0 }: AgentCardProps) {
           <div className="flex items-center justify-between mb-4">
             <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${providerColors[agent.provider] || "bg-[#f6f1e7] text-[#6b6257] border-[#d9cfba]"}`}>
               <Zap className="h-3 w-3" />
-              {providerLabels[agent.provider]}
+              {agentTypeLabels[agent.agent_type] || providerLabels[agent.provider]}
             </div>
             <TrustBadge score={agent.trust_score || 0} size="sm" showLabel={false} />
           </div>

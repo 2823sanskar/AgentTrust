@@ -1,6 +1,10 @@
 // API client with JWT token injection
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "/api").replace(/\/+$/, "");
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "/api"
+).replace(/\/+$/, "");
 
 export function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -155,14 +159,20 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await parseErrorBody(response);
-      const detail = error.detail ?? error.message ?? error.error;
+      const detail =
+        error.detail ??
+        error.message ??
+        error.error ??
+        (response.status === 401 ? "Unauthorized" : "Request failed");
       const message = formatApiError(detail, `Request failed (HTTP ${response.status})`);
-      console.error("[API Error]:", {
-        endpoint,
-        status: response.status,
-        statusText: response.statusText,
-        detail,
-      });
+      if (response.status >= 500) {
+        console.error("[API Error]:", {
+          endpoint,
+          status: response.status,
+          statusText: response.statusText,
+          detail,
+        });
+      }
       if (response.status === 401 || response.status === 403) {
         notifyAuthExpired();
       }
@@ -248,7 +258,7 @@ class ApiClient {
   }
 
   // Executions
-  async execute(data: { agent_id: string; task: string }) {
+  async execute(data: { agent_id: string; task: string; is_interactive?: boolean }) {
     // 4-minute timeout: Docker/browser runs can take a while + Stellar anchoring
     return this.request<import("@/types").Run>("/execute", {
       method: "POST",

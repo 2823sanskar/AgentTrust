@@ -44,7 +44,7 @@ export default function ExecuteAgentPage() {
       setElapsed(Math.floor((Date.now() - startTs) / 1000));
     }, 1000);
     try {
-      const run = await api.execute({ agent_id: id, task });
+      const run = await api.execute({ agent_id: id, task, is_interactive: true });
       setResult(run);
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Execution failed"));
@@ -178,14 +178,16 @@ export default function ExecuteAgentPage() {
 
               <div className="mt-8">
                 <LiveSandboxConsole
+                  runId={result?.id}
                   actionLog={result?.action_log}
                   stdout={result?.container_stdout}
                   stderr={result?.container_stderr}
-                  isActive={executing}
+                  isActive={executing || result?.status === "pending" || result?.desktop_status === "running"}
                   status={result?.status}
                   agentProvider={agent?.provider}
                   routingMode={result?.routing_mode || "cloud_sandbox"}
                   elapsedSeconds={elapsed}
+                  isInteractive={result?.is_interactive}
                 />
               </div>
 

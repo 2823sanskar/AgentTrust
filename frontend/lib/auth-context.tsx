@@ -88,18 +88,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearStoredToken();
     setUser(null);
     setIsLoading(false);
-    if (
-      typeof window !== "undefined" &&
-      !window.location.pathname.startsWith("/login") &&
-      !window.location.pathname.startsWith("/register")
-    ) {
-      window.location.replace("/login");
-    }
   }, []);
 
   const loadUser = useCallback(async () => {
     const token = getStoredToken();
     if (!token) {
+      setUser(null);
       setIsLoading(false);
       return;
     }
@@ -113,10 +107,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData);
       setStoredUser(userData);
     } catch (err) {
-      if (isAuthExpiredError(err) || !storedUser) {
+      if (isAuthExpiredError(err)) {
         expireSession();
         return;
       }
+      if (!storedUser) setUser(null);
     } finally {
       setIsLoading(false);
     }

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { api, getErrorMessage } from "@/lib/api";
 import { Navbar } from "@/components/layout/navbar";
 import { motion } from "framer-motion";
-import { Bot, Zap, ArrowRight, AlertCircle } from "lucide-react";
+import { Bot, Zap, ArrowRight, AlertCircle, Package, Terminal, Plus, Trash2 } from "lucide-react";
 
 const providers = [
   { value: "openrouter", label: "OpenRouter (Free)", models: ["openrouter/free"] },
@@ -41,11 +41,16 @@ export default function RegisterAgentPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [registrationMode, setRegistrationMode] = useState<"prebuilt" | "custom">("prebuilt");
+  const [executionType, setExecutionType] = useState<"custom_docker" | "custom_script">("custom_docker");
   const [provider, setProvider] = useState("openrouter");
   const [model, setModel] = useState("openrouter/free");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [dockerImage, setDockerImage] = useState("clawbot-demo:latest");
   const [dockerCommand, setDockerCommand] = useState("");
+  const [sourceRepoUrl, setSourceRepoUrl] = useState("");
+  const [envVarDraft, setEnvVarDraft] = useState("");
+  const [requiredEnvVars, setRequiredEnvVars] = useState<string[]>([]);
   const [timeoutSeconds, setTimeoutSeconds] = useState(60);
   const [category, setCategory] = useState("");
   const [error, setError] = useState("");
@@ -53,6 +58,20 @@ export default function RegisterAgentPage() {
 
   const selectedProvider = providers.find((p) => p.value === provider);
   const canRegister = isAuthenticated && user?.role === "developer";
+
+  const addEnvVar = () => {
+    const key = envVarDraft.trim().toUpperCase();
+    if (!key || requiredEnvVars.includes(key)) {
+      setEnvVarDraft("");
+      return;
+    }
+    setRequiredEnvVars((values) => [...values, key]);
+    setEnvVarDraft("");
+  };
+
+  const removeEnvVar = (key: string) => {
+    setRequiredEnvVars((values) => values.filter((value) => value !== key));
+  };
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setIsMounted(true));
@@ -72,21 +91,30 @@ export default function RegisterAgentPage() {
     }
     setLoading(true);
     try {
+      const isExternal = registrationMode === "custom";
+      const normalizedEntrypoint = normalizeDockerCommand(dockerCommand);
       const agent = await api.createAgent({
         name,
         description: description || undefined,
-        provider: provider as "openrouter" | "browser" | "external_docker",
-        model,
+        provider: isExternal ? "external_docker" : provider as "openrouter" | "browser" | "external_docker",
+        model: isExternal
+          ? executionType === "custom_script" ? "custom-script-v1" : "docker-contract-v1"
+          : model,
         system_prompt:
-          provider === "external_docker"
+          isExternal
             ? systemPrompt || "External Docker agent using AgentTrust structured execution contract."
             : systemPrompt,
-        docker_image: provider === "external_docker" ? dockerImage : undefined,
-        docker_command: provider === "external_docker" ? normalizeDockerCommand(dockerCommand) : undefined,
-        timeout_seconds: provider === "external_docker" ? timeoutSeconds : undefined,
+        agent_type: isExternal ? executionType : "prebuilt",
+        docker_image: isExternal ? dockerImage : undefined,
+        docker_command: isExternal ? normalizedEntrypoint : undefined,
+        entrypoint_command: isExternal ? normalizedEntrypoint : undefined,
+        required_env_vars: isExternal && requiredEnvVars.length ? requiredEnvVars : undefined,
+        source_repo_url: isExternal && sourceRepoUrl ? sourceRepoUrl : undefined,
+        timeout_seconds: isExternal ? timeoutSeconds : undefined,
         category: category || undefined,
       });
-      router.push(`/agents/${agent.id}`);
+      sessionStorage.setItem("agenttrust:agent-created", agent.name);
+      router.push("/agents?registered=1");
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Failed to register agent"));
     } finally {
@@ -189,33 +217,105 @@ export default function RegisterAgentPage() {
               </h2>
 
               <div>
-                <label className="block text-sm font-medium text-[#403b33] mb-2">Provider *</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {providers.map((p) => (
-                    <button
-                      key={p.value}
-                      type="button"
-                      onClick={() => {
-                        setProvider(p.value);
-                        setModel(p.models[0]);
-                        if (p.value === "external_docker" && !systemPrompt) {
-                          setSystemPrompt("External Docker agent using AgentTrust structured execution contract.");
-                        }
-                      }}
-                      className={`p-3 rounded-[20px] border text-sm font-medium transition-all ${
-                        provider === p.value
-                          ? "border-[#007c89] bg-[#d8f3f0] text-[#007c89]"
-                          : "border-[#d9cfba] bg-white text-[#6b6257] hover:border-[#241c15]"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
+                <label className="block text-sm font-medium text-[#403b33] mb-2">Registration Type *</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRegistrationMode("prebuilt");
+                      setProvider("openrouter");
+                      setModel("openrouter/free");
+                    }}
+                    className={`p-3 rounded-[20px] border text-sm font-medium transition-all ${
+                      registrationMode === "prebuilt"
+                        ? "border-[#007c89] bg-[#d8f3f0] text-[#007c89]"
+                        : "border-[#d9cfba] bg-white text-[#6b6257] hover:border-[#241c15]"
+                    }`}
+                  >
+                    Pre-built Agent Template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRegistrationMode("custom");
+                      setProvider("external_docker");
+                      setModel("docker-contract-v1");
+                      if (!systemPrompt) {
+                        setSystemPrompt("External Docker agent using AgentTrust structured execution contract.");
+                      }
+                    }}
+                    className={`p-3 rounded-[20px] border text-sm font-medium transition-all ${
+                      registrationMode === "custom"
+                        ? "border-[#007c89] bg-[#d8f3f0] text-[#007c89]"
+                        : "border-[#d9cfba] bg-white text-[#6b6257] hover:border-[#241c15]"
+                    }`}
+                  >
+                    Deploy External Custom Agent
+                  </button>
                 </div>
               </div>
 
-              {provider === "external_docker" && (
+              {registrationMode === "prebuilt" && (
+                <div>
+                  <label className="block text-sm font-medium text-[#403b33] mb-2">Template Provider *</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {providers.filter((p) => p.value !== "external_docker").map((p) => (
+                      <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => {
+                          setProvider(p.value);
+                          setModel(p.models[0]);
+                        }}
+                        className={`p-3 rounded-[20px] border text-sm font-medium transition-all ${
+                          provider === p.value
+                            ? "border-[#007c89] bg-[#d8f3f0] text-[#007c89]"
+                            : "border-[#d9cfba] bg-white text-[#6b6257] hover:border-[#241c15]"
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {registrationMode === "custom" && (
                 <div className="rounded-[20px] border border-[#8fcac4] bg-[#d8f3f0] p-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[#403b33] mb-2">Execution Type *</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExecutionType("custom_docker");
+                          setModel("docker-contract-v1");
+                        }}
+                        className={`flex items-center justify-center gap-2 p-3 rounded-[20px] border text-sm font-medium transition-all ${
+                          executionType === "custom_docker"
+                            ? "border-[#007c89] bg-white text-[#007c89]"
+                            : "border-[#d9cfba] bg-white/70 text-[#6b6257] hover:border-[#241c15]"
+                        }`}
+                      >
+                        <Package className="h-4 w-4" /> Docker Container
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExecutionType("custom_script");
+                          setModel("custom-script-v1");
+                        }}
+                        className={`flex items-center justify-center gap-2 p-3 rounded-[20px] border text-sm font-medium transition-all ${
+                          executionType === "custom_script"
+                            ? "border-[#007c89] bg-white text-[#007c89]"
+                            : "border-[#d9cfba] bg-white/70 text-[#6b6257] hover:border-[#241c15]"
+                        }`}
+                      >
+                        <Terminal className="h-4 w-4" /> Custom Command / Script
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-[#403b33] mb-2">Docker Image *</label>
                     <input
@@ -225,20 +325,76 @@ export default function RegisterAgentPage() {
                       onChange={(e) => setDockerImage(e.target.value)}
                       required
                       className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all font-mono text-sm"
-                      placeholder="clawbot-demo:latest"
+                      placeholder="ghcr.io/user/agent:latest"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-[#403b33] mb-2">Run Command</label>
+                    <label className="block text-sm font-medium text-[#403b33] mb-2">Entrypoint Command</label>
                     <input
                       id="agent-docker-command"
                       type="text"
                       value={dockerCommand}
                       onChange={(e) => setDockerCommand(e.target.value)}
                       className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all font-mono text-sm"
-                      placeholder="Optional command override, usually blank"
+                      placeholder={executionType === "custom_script" ? "python run.py" : "Optional command override, usually blank"}
+                      required={executionType === "custom_script"}
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#403b33] mb-2">Source Repo URL</label>
+                    <input
+                      id="agent-source-repo-url"
+                      type="url"
+                      value={sourceRepoUrl}
+                      onChange={(e) => setSourceRepoUrl(e.target.value)}
+                      className="w-full px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all font-mono text-sm"
+                      placeholder="https://github.com/user/agent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#403b33] mb-2">Required Environment Keys</label>
+                    <div className="flex gap-2">
+                      <input
+                        id="agent-env-var"
+                        type="text"
+                        value={envVarDraft}
+                        onChange={(e) => setEnvVarDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addEnvVar();
+                          }
+                        }}
+                        className="min-w-0 flex-1 px-4 py-3 rounded-[20px] bg-white border border-[#d9cfba] text-[#241c15] placeholder-[#b7aa8d] focus:outline-none focus:border-[#007c89] focus:ring-1 focus:ring-[#007c89]/20 transition-all font-mono text-sm"
+                        placeholder="OPENAI_API_KEY"
+                      />
+                      <button
+                        type="button"
+                        onClick={addEnvVar}
+                        className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-[#241c15] bg-[#ffe01b] text-[#241c15]"
+                        aria-label="Add environment key"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {requiredEnvVars.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {requiredEnvVars.map((key) => (
+                          <span
+                            key={key}
+                            className="inline-flex items-center gap-2 rounded-full border border-[#8fcac4] bg-white px-3 py-1.5 text-xs font-mono text-[#004e56]"
+                          >
+                            {key}
+                            <button type="button" onClick={() => removeEnvVar(key)} aria-label={`Remove ${key}`}>
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -257,7 +413,8 @@ export default function RegisterAgentPage() {
                 </div>
               )}
 
-              <div>
+              {registrationMode === "prebuilt" && (
+                <div>
                 <label className="block text-sm font-medium text-[#403b33] mb-2">Model *</label>
                 <select
                   id="agent-model"
@@ -270,6 +427,7 @@ export default function RegisterAgentPage() {
                   ))}
                 </select>
               </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-[#403b33] mb-2">System Prompt *</label>
