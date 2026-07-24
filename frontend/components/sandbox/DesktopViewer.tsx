@@ -112,10 +112,13 @@ export function DesktopViewer({
   const screenRef = useRef<HTMLDivElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const rfbRef = useRef<RFBInstance | null>(null);
+  const internallyClosedRfbRef = useRef<WeakSet<RFBInstance>>(new WeakSet());
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const stoppedByUserRef = useRef(false);
+  const onSessionEndedRef = useRef(onSessionEnded);
+  const onSessionCompleteRef = useRef(onSessionComplete);
 
   const [connectInfo, setConnectInfo] = useState<DesktopConnectInfo | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
@@ -130,20 +133,27 @@ export function DesktopViewer({
   const [error, setError] = useState("");
   const [reconnectNonce, setReconnectNonce] = useState(0);
   const [RFBClass, setRFBClass] = useState<RFBConstructor | null>(null);
+  const viewOnlyRef = useRef(viewOnly);
+  const scaleModeRef = useRef(scaleMode);
+  const qualityLevelRef = useRef(qualityLevel);
 
   const websocketUrl = useMemo(
     () => (connectInfo ? buildWebsocketUrl(runId, connectInfo, hostOverride) : ""),
     [connectInfo, hostOverride, runId],
   );
+  const sessionToken = connectInfo?.session_token || "";
 
   const cleanupRfb = useCallback(() => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
-    if (rfbRef.current) {
-      rfbRef.current.disconnect();
+    const currentRfb = rfbRef.current;
+    if (currentRfb) {
+      // Internal reconnects and unmounts are not remote session termination.
+      internallyClosedRfbRef.current.add(currentRfb);
       rfbRef.current = null;
+      currentRfb.disconnect();
     }
     if (screenRef.current) {
       screenRef.current.replaceChildren();
@@ -181,37 +191,48 @@ export function DesktopViewer({
     };
   }, []);
 
+  useEffect(() => {
+    onSessionEndedRef.current = onSessionEnded;
+    onSessionCompleteRef.current = onSessionComplete;
+  }, [onSessionComplete, onSessionEnded]);
+
   const connect = useCallback(() => {
-    if (!screenRef.current || !websocketUrl || !connectInfo?.session_token || !RFBClass) return;
+    if (!screenRef.current || !websocketUrl || !sessionToken || !RFBClass) return;
 
     cleanupRfb();
     setConnectionState(reconnectAttemptRef.current > 0 ? "reconnecting" : "connecting");
     setError("");
 
     const rfb = new RFBClass(screenRef.current, websocketUrl, {
-      credentials: { password: connectInfo.session_token },
+      credentials: { password: sessionToken },
       shared: true,
     });
     rfb.background = "#050505";
-    rfb.viewOnly = viewOnly;
-    rfb.scaleViewport = scaleMode === "fit";
+    rfb.viewOnly = viewOnlyRef.current;
+    rfb.scaleViewport = scaleModeRef.current === "fit";
     rfb.resizeSession = false;
-    rfb.qualityLevel = qualitySettings[qualityLevel].qualityLevel;
-    rfb.compressionLevel = qualitySettings[qualityLevel].compressionLevel;
+    rfb.qualityLevel = qualitySettings[qualityLevelRef.current].qualityLevel;
+    rfb.compressionLevel = qualitySettings[qualityLevelRef.current].compressionLevel;
     rfbRef.current = rfb;
 
     rfb.addEventListener("connect", () => {
+      if (internallyClosedRfbRef.current.has(rfb) || rfbRef.current !== rfb) return;
       reconnectAttemptRef.current = 0;
       setConnectionState("connected");
       rfb.focus();
     });
 
     rfb.addEventListener("disconnect", (event) => {
+      if (internallyClosedRfbRef.current.has(rfb)) {
+        internallyClosedRfbRef.current.delete(rfb);
+        return;
+      }
+      if (rfbRef.current !== rfb) return;
       rfbRef.current = null;
       if (isIntentionalDisconnect(event, stoppedByUserRef.current)) {
         setConnectionState(stoppedByUserRef.current ? "stopped" : "disconnected");
         setError(stoppedByUserRef.current ? "Desktop session ended." : "");
-        onSessionEnded?.();
+        onSessionEndedRef.current?.();
         return;
       }
       const delay = RECONNECT_DELAYS_MS[reconnectAttemptRef.current];
@@ -228,6 +249,7 @@ export function DesktopViewer({
     });
 
     rfb.addEventListener("securityfailure", (event) => {
+      if (internallyClosedRfbRef.current.has(rfb) || rfbRef.current !== rfb) return;
       const reason =
         "detail" in event && (event as CustomEvent<{ reason?: string }>).detail?.reason
           ? (event as CustomEvent<{ reason?: string }>).detail.reason
@@ -237,10 +259,12 @@ export function DesktopViewer({
     });
 
     rfb.addEventListener("credentialsrequired", () => {
-      rfb.sendCredentials({ password: connectInfo.session_token || "" });
+      if (internallyClosedRfbRef.current.has(rfb) || rfbRef.current !== rfb) return;
+      rfb.sendCredentials({ password: sessionToken });
     });
 
     rfb.addEventListener("desktopname", (event) => {
+      if (internallyClosedRfbRef.current.has(rfb) || rfbRef.current !== rfb) return;
       const nextName =
         "detail" in event && (event as CustomEvent<{ name?: string }>).detail?.name
           ? (event as CustomEvent<{ name?: string }>).detail.name
@@ -249,6 +273,7 @@ export function DesktopViewer({
     });
 
     rfb.addEventListener("clipboard", (event) => {
+      if (internallyClosedRfbRef.current.has(rfb) || rfbRef.current !== rfb) return;
       const text =
         "detail" in event && (event as CustomEvent<{ text?: string }>).detail?.text
           ? (event as CustomEvent<{ text?: string }>).detail.text
@@ -264,11 +289,7 @@ export function DesktopViewer({
   }, [
     RFBClass,
     cleanupRfb,
-    connectInfo,
-    onSessionEnded,
-    qualityLevel,
-    scaleMode,
-    viewOnly,
+    sessionToken,
     websocketUrl,
   ]);
 
@@ -280,12 +301,13 @@ export function DesktopViewer({
   }, [cleanupRfb, loadConnectInfo]);
 
   useEffect(() => {
-    if (websocketUrl && connectInfo?.session_token) {
+    if (websocketUrl && sessionToken) {
       connect();
     }
-  }, [connect, connectInfo, reconnectNonce, websocketUrl]);
+  }, [connect, reconnectNonce, sessionToken, websocketUrl]);
 
   useEffect(() => {
+    viewOnlyRef.current = viewOnly;
     if (rfbRef.current) {
       rfbRef.current.viewOnly = viewOnly;
       rfbRef.current.focus();
@@ -293,6 +315,7 @@ export function DesktopViewer({
   }, [viewOnly]);
 
   useEffect(() => {
+    scaleModeRef.current = scaleMode;
     if (rfbRef.current) {
       rfbRef.current.scaleViewport = scaleMode === "fit";
       rfbRef.current.resizeSession = false;
@@ -301,6 +324,7 @@ export function DesktopViewer({
   }, [scaleMode]);
 
   useEffect(() => {
+    qualityLevelRef.current = qualityLevel;
     if (!rfbRef.current) return;
     const settings = qualitySettings[qualityLevel];
     rfbRef.current.qualityLevel = settings.qualityLevel;
@@ -350,8 +374,8 @@ export function DesktopViewer({
       const stopResult = await api.stopDesktopSession(runId);
       setConnectionState("stopped");
       setError("Desktop session ended.");
-      onSessionComplete?.(stopResult.run);
-      onSessionEnded?.();
+      onSessionCompleteRef.current?.(stopResult.run);
+      onSessionEndedRef.current?.();
     } catch (err) {
       setConnectionState("failed");
       setError(getErrorMessage(err, "Could not stop desktop session."));

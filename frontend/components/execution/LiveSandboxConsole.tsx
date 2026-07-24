@@ -207,6 +207,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
   const isCloudRoute = props.routingMode === "cloud_sandbox";
   const sseUrl = resolveStreamUrl(props.runId, props.streamUrl);
   const shouldStream = Boolean(sseUrl && (props.isActive || props.status === "pending"));
+  const displayPanelIsVisible = desktopIsLive || activeTab === "display";
 
   const telemetrySignature = JSON.stringify({
     actionCount: props.actionLog?.length || 0,
@@ -564,7 +565,12 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]">
-        <div className={activeTab === "display" ? "block" : "hidden lg:block"}>{displayPanel}</div>
+        <div
+          data-testid="interactive-desktop-panel"
+          className={displayPanelIsVisible ? "block" : "hidden lg:block"}
+        >
+          {displayPanel}
+        </div>
         <div className={activeTab === "terminal" ? "block" : "hidden lg:block"}>{terminalPanel}</div>
       </div>
     </div>
