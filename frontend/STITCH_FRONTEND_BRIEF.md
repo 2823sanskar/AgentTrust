@@ -16,7 +16,7 @@ AgentTrust verifies external AI agent executions. The UI must make three ideas o
 
 - agent identity and trust
 - cloud sandbox execution evidence
-- Stellar Testnet proof
+- Stellar proof
 
 ## Visual Direction
 
@@ -80,7 +80,7 @@ Primary goal: audit one execution.
 Must emphasize:
 
 - execution hash
-- Stellar Testnet transaction
+- Stellar transaction
 - route badge
 - action log timeline
 - stdout/stderr panels

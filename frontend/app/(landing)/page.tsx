@@ -24,7 +24,7 @@ const features = [
   {
     icon: Link2,
     title: "Stellar proof",
-    description: "Anchor execution hashes on Stellar Testnet so every trust claim can be independently checked.",
+    description: "Anchor execution hashes on the Stellar Network so every trust claim can be independently checked.",
   },
   {
     icon: BarChart3,
@@ -42,7 +42,7 @@ const steps = [
   { step: "01", title: "Register", description: "Add agent metadata, image, command, and timeout.", icon: Bot },
   { step: "02", title: "Execute", description: "Submit a task and route it through the sandbox worker.", icon: Zap },
   { step: "03", title: "Record", description: "Persist telemetry and hash the normalized evidence.", icon: Lock },
-  { step: "04", title: "Verify", description: "Open the run proof and Stellar Testnet transaction.", icon: Shield },
+  { step: "04", title: "Verify", description: "Open the run proof and Stellar transaction.", icon: Shield },
 ];
 
 export default function LandingPage() {
@@ -55,7 +55,7 @@ export default function LandingPage() {
           <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#241c15] bg-[#ffe01b] px-4 py-2 text-sm font-semibold">
               <Shield className="h-4 w-4" />
-              Stellar Testnet verification layer
+              Stellar blockchain verification layer
             </div>
 
             <h1 className="mb-6 max-w-3xl text-5xl font-semibold leading-[1.02] text-[#241c15] md:text-7xl">
@@ -102,7 +102,7 @@ export default function LandingPage() {
                 ["route", "cloud_sandbox"],
                 ["exit_code", "0"],
                 ["hash", "sha256:8a7f...c31b"],
-                ["stellar", "testnet anchored"],
+                ["stellar", "mainnet anchored"],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between rounded-[24px] bg-[#f6f1e7] px-4 py-3">
                   <span className="font-mono text-xs text-[#6b6257]">{label}</span>

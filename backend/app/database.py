@@ -94,6 +94,13 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
         await conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS stellar_ledger_sequence INTEGER"))
         await conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS anchored_at TIMESTAMP WITH TIME ZONE"))
+        await conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS stellar_network VARCHAR(20)"))
+        await conn.execute(
+            text(
+                "UPDATE runs SET stellar_network = 'testnet' "
+                "WHERE stellar_transaction IS NOT NULL AND stellar_network IS NULL"
+            )
+        )
         await conn.execute(
             text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS anchor_status VARCHAR(32) NOT NULL DEFAULT 'pending_anchor'")
         )

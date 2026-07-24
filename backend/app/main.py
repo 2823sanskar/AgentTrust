@@ -26,7 +26,10 @@ from app.database import DATABASE_UNAVAILABLE_DETAIL, check_db_connection, engin
 from app.api import auth, agents, executions, trust, verify, sandbox, desktop
 from app.rate_limit import limiter
 from app.services.cleanup_service import run_desktop_cleanup_loop
-from app.services.stellar_service import ensure_stellar_anchor_account
+from app.services.stellar_service import (
+    ensure_stellar_anchor_account,
+    stellar_anchor_account_ready,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -63,11 +66,15 @@ async def lifespan(app: FastAPI):
             "will return HTTP 503 until the connection is fixed."
         )
 
+    if (
+        settings.ENVIRONMENT.lower() == "production"
+        or settings.STELLAR_SECRET_KEY
+        or settings.STELLAR_PUBLIC_KEY
+    ):
+        await ensure_stellar_anchor_account()
+
     if db_ready:
         cleanup_task = asyncio.create_task(run_desktop_cleanup_loop(cleanup_stop_event))
-
-    if settings.STELLAR_NETWORK.lower() != "mainnet" or settings.STELLAR_SECRET_KEY:
-        await ensure_stellar_anchor_account()
 
     try:
         yield
@@ -150,6 +157,7 @@ async def health():
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
         "stellar_configured": bool(settings.STELLAR_SECRET_KEY and settings.STELLAR_PUBLIC_KEY),
+        "stellar_ready": stellar_anchor_account_ready(),
         "stellar_network": settings.STELLAR_NETWORK,
         "sandbox_worker_configured": bool(settings.SANDBOX_WORKER_URL),
     }

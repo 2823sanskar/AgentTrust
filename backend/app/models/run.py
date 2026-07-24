@@ -48,6 +48,9 @@ class Run(Base):
     )
     hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     stellar_transaction: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stellar_network: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, default="mainnet"
+    )
     stellar_ledger_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     anchored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     anchor_status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending_anchor")

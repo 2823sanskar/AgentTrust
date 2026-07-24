@@ -39,7 +39,7 @@ export function Footer() {
 
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-[#dfd5bd] pt-8 sm:flex-row">
           <p className="text-xs text-[#6b6257]">
-            © {new Date().getFullYear()} AgentTrust. Built on Stellar Testnet.
+            © {new Date().getFullYear()} AgentTrust. Built on Stellar.
           </p>
           <div className="rounded-full border border-[#d9cfba] bg-white px-3 py-1 text-xs text-[#6b6257]">
             Sandbox evidence, trust scores, and ledger proof.

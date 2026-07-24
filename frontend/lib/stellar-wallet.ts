@@ -4,6 +4,10 @@ import {
   requestAccess,
   signMessage,
 } from "@stellar/freighter-api";
+import {
+  ACTIVE_STELLAR_NETWORK,
+  normalizeStellarNetwork,
+} from "@/lib/stellar-network";
 
 function readError(error: unknown) {
   if (!error) return "";
@@ -28,6 +32,21 @@ function fail(error: unknown, fallback: string): never {
   throw new Error(readError(error) || fallback);
 }
 
+function normalizeFreighterNetwork(
+  network: string | undefined,
+  networkPassphrase: string | undefined,
+) {
+  const value = (network || "").trim().toLowerCase();
+  const passphrase = (networkPassphrase || "").trim().toLowerCase();
+  if (value === "public" || value === "mainnet" || passphrase.includes("public global stellar")) {
+    return "mainnet";
+  }
+  if (value === "testnet" || passphrase.includes("test sdf network")) {
+    return "testnet";
+  }
+  return value ? normalizeStellarNetwork(value) : null;
+}
+
 export async function connectFreighterWallet() {
   const connected = await isConnected();
   if (connected.error) fail(connected.error, "Freighter wallet not found.");
@@ -44,7 +63,15 @@ export async function connectFreighterWallet() {
 
   const networkInfo = await getNetwork();
   if (networkInfo.error) fail(networkInfo.error, "Could not read Freighter network.");
-  const network = (networkInfo.network || "testnet").toLowerCase();
+  const network = normalizeFreighterNetwork(networkInfo.network, networkInfo.networkPassphrase);
+  if (!network) {
+    throw new Error("Freighter returned an unknown Stellar network.");
+  }
+  if (network !== ACTIVE_STELLAR_NETWORK) {
+    throw new Error(
+      "Switch Freighter to Stellar Mainnet before connecting.",
+    );
+  }
 
   const signatureMessage = [
     "AgentTrust wallet ownership",

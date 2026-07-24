@@ -89,7 +89,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <p className="text-xs text-[#6b6257]">Network</p>
-                  <p className="text-sm text-[#241c15] capitalize">{user.stellar_wallet_network || "testnet"}</p>
+                  <p className="text-sm text-[#241c15] capitalize">{user.stellar_wallet_network || "not recorded"}</p>
                 </div>
               </div>
             ) : (

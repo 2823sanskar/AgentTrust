@@ -7,7 +7,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, TypedDict
 
-import httpx
 from stellar_sdk import AiohttpClient, HashMemo, Keypair, Network, TransactionBuilder
 from stellar_sdk.exceptions import BadRequestError, NotFoundError
 from stellar_sdk.server_async import ServerAsync
@@ -22,16 +21,17 @@ from app.utils.hashing import UUIDEncoder, hash_to_bytes
 logger = logging.getLogger(__name__)
 
 STELLAR_ANCHOR_TIMEOUT_SECONDS = 30
-FRIENDBOT_TIMEOUT_SECONDS = 20
 TERMINAL_RUN_STATUSES = {"success", "failure", "completed", "failed"}
 _runtime_keypair: Keypair | None = None
-_runtime_keypair_funded = False
 _runtime_keypair_lock = asyncio.Lock()
+_anchor_submission_lock = asyncio.Lock()
+_stellar_account_ready = False
 
 
 class StellarReceipt(TypedDict):
     verified: bool
     tx_hash: str | None
+    network: str | None
     ledger: int | None
     explorer_url: str | None
     timestamp: str | None
@@ -46,17 +46,25 @@ class StellarAnchorResult(TypedDict):
     error: str | None
 
 
-def stellar_explorer_url(tx_hash: str | None, network: str = "testnet") -> str | None:
+def stellar_explorer_url(
+    tx_hash: str | None,
+    network: str | None = None,
+) -> str | None:
     if not tx_hash:
         return None
-    network_path = "public" if network.lower() == "mainnet" else "testnet"
+    active_network = (network or settings.STELLAR_NETWORK).strip().lower()
+    if active_network == "mainnet":
+        network_path = "public"
+    elif active_network == "testnet":
+        network_path = "testnet"
+    else:
+        logger.warning("Refusing to build explorer URL for unknown network %r", network)
+        return None
     return f"https://stellar.expert/explorer/{network_path}/tx/{tx_hash}"
 
 
 def _network_passphrase() -> str:
-    if settings.STELLAR_NETWORK.lower() == "mainnet":
-        return Network.PUBLIC_NETWORK_PASSPHRASE
-    return Network.TESTNET_NETWORK_PASSPHRASE
+    return Network.PUBLIC_NETWORK_PASSPHRASE
 
 
 def _anchor_error(message: str) -> StellarAnchorResult:
@@ -68,63 +76,66 @@ def _anchor_error(message: str) -> StellarAnchorResult:
     }
 
 
-async def _fund_testnet_account(public_key: str) -> None:
-    if settings.STELLAR_NETWORK.lower() == "mainnet":
-        return
-
-    async with httpx.AsyncClient(timeout=FRIENDBOT_TIMEOUT_SECONDS) as client:
-        response = await client.get(
-            "https://friendbot.stellar.org",
-            params={"addr": public_key},
-        )
-        response.raise_for_status()
-
-
 async def _get_anchor_keypair() -> Keypair:
-    """Return a configured or generated Testnet keypair, funding generated accounts once."""
-    global _runtime_keypair, _runtime_keypair_funded
+    """Return the explicitly configured Mainnet keypair."""
+    global _runtime_keypair
 
     async with _runtime_keypair_lock:
         if _runtime_keypair is None:
             configured_secret = (settings.STELLAR_SECRET_KEY or "").strip()
             configured_public = (settings.STELLAR_PUBLIC_KEY or "").strip()
-            try:
-                if configured_secret:
-                    keypair = Keypair.from_secret(configured_secret)
-                    if configured_public and configured_public != keypair.public_key:
-                        raise ValueError("STELLAR_PUBLIC_KEY does not match STELLAR_SECRET_KEY")
-                    _runtime_keypair = keypair
-                    _runtime_keypair_funded = True
-                else:
-                    raise ValueError("STELLAR_SECRET_KEY is not configured")
-            except Exception as exc:
-                if settings.STELLAR_NETWORK.lower() == "mainnet":
-                    raise ValueError("Valid STELLAR_SECRET_KEY is required on mainnet") from exc
-                _runtime_keypair = Keypair.random()
-                _runtime_keypair_funded = False
-                logger.warning(
-                    "Generated temporary Stellar Testnet anchor account: %s",
-                    _runtime_keypair.public_key,
-                )
+            if not configured_secret:
+                raise ValueError("STELLAR_SECRET_KEY is required for Mainnet anchoring")
+            if not configured_public:
+                raise ValueError("STELLAR_PUBLIC_KEY is required for Mainnet anchoring")
 
-        if not _runtime_keypair_funded and settings.STELLAR_NETWORK.lower() != "mainnet":
             try:
-                await _fund_testnet_account(_runtime_keypair.public_key)
-                _runtime_keypair_funded = True
-                logger.info("Funded temporary Stellar Testnet anchor account: %s", _runtime_keypair.public_key)
+                keypair = Keypair.from_secret(configured_secret)
+                Keypair.from_public_key(configured_public)
             except Exception as exc:
-                logger.error("Friendbot funding failed for %s: %s", _runtime_keypair.public_key, exc)
+                raise ValueError("Invalid Stellar Mainnet key configuration") from exc
+            if configured_public != keypair.public_key:
+                raise ValueError("STELLAR_PUBLIC_KEY does not match STELLAR_SECRET_KEY")
+            _runtime_keypair = keypair
 
         return _runtime_keypair
 
 
 async def ensure_stellar_anchor_account() -> None:
-    """Prepare the Stellar anchor account during startup when possible."""
+    """Verify the configured account and Horizon endpoint against Mainnet."""
+    global _stellar_account_ready
+    _stellar_account_ready = False
     try:
         keypair = await _get_anchor_keypair()
+        async with ServerAsync(
+            horizon_url=settings.STELLAR_HORIZON_URL,
+            client=AiohttpClient(),
+        ) as server:
+            root = await asyncio.wait_for(
+                server.root().call(),
+                timeout=STELLAR_ANCHOR_TIMEOUT_SECONDS,
+            )
+            network_passphrase = root.get("network_passphrase")
+            if network_passphrase != Network.PUBLIC_NETWORK_PASSPHRASE:
+                raise RuntimeError(
+                    "Configured Horizon endpoint is not connected to Stellar Mainnet"
+                )
+            await asyncio.wait_for(
+                server.load_account(keypair.public_key),
+                timeout=STELLAR_ANCHOR_TIMEOUT_SECONDS,
+            )
+        _stellar_account_ready = True
         logger.info("Stellar %s anchor account ready: %s", settings.STELLAR_NETWORK, keypair.public_key)
     except Exception as exc:
         logger.error("Stellar anchor account startup check failed: %s", exc)
+        if settings.ENVIRONMENT.lower() == "production":
+            raise RuntimeError(
+                "Stellar anchor account configuration is invalid"
+            ) from exc
+
+
+def stellar_anchor_account_ready() -> bool:
+    return _stellar_account_ready
 
 
 def compute_run_output_fingerprint(run: Run) -> str:
@@ -158,6 +169,7 @@ async def anchor_run_hash(run: Run) -> dict[str, Any]:
         return {
             "hash": evidence_hash,
             "stellar_transaction": anchor["tx_hash"],
+            "stellar_network": settings.STELLAR_NETWORK,
             "stellar_ledger_sequence": anchor["ledger"],
             "anchored_at": datetime.now(timezone.utc),
             "anchor_status": "anchored",
@@ -167,6 +179,7 @@ async def anchor_run_hash(run: Run) -> dict[str, Any]:
     return {
         "hash": evidence_hash,
         "stellar_transaction": None,
+        "stellar_network": settings.STELLAR_NETWORK,
         "stellar_ledger_sequence": None,
         "anchored_at": None,
         "anchor_status": "pending_anchor",
@@ -175,7 +188,7 @@ async def anchor_run_hash(run: Run) -> dict[str, Any]:
 
 
 async def submit_hash_to_stellar(evidence_hash: str) -> StellarAnchorResult:
-    """Anchor a SHA-256 hash to Stellar using configured or generated Testnet keys."""
+    """Anchor a SHA-256 hash to the configured Stellar network."""
     try:
         try:
             evidence_hash_bytes = bytes.fromhex(evidence_hash)
@@ -186,34 +199,46 @@ async def submit_hash_to_stellar(evidence_hash: str) -> StellarAnchorResult:
 
         keypair = await _get_anchor_keypair()
 
-        async with ServerAsync(
-            horizon_url=settings.STELLAR_HORIZON_URL,
-            client=AiohttpClient(),
-        ) as server:
-            source_account = await asyncio.wait_for(
-                server.load_account(keypair.public_key),
-                timeout=STELLAR_ANCHOR_TIMEOUT_SECONDS,
-            )
-            transaction = (
-                TransactionBuilder(
-                    source_account=source_account,
-                    network_passphrase=_network_passphrase(),
-                    base_fee=100,
+        async with _anchor_submission_lock:
+            async with ServerAsync(
+                horizon_url=settings.STELLAR_HORIZON_URL,
+                client=AiohttpClient(),
+            ) as server:
+                source_account = await asyncio.wait_for(
+                    server.load_account(keypair.public_key),
+                    timeout=STELLAR_ANCHOR_TIMEOUT_SECONDS,
                 )
-                .append_manage_data_op(
-                    data_name="agenttrust_hash",
-                    data_value=evidence_hash,
-                    source=keypair.public_key,
+                base_fee = max(
+                    100,
+                    await asyncio.wait_for(
+                        server.fetch_base_fee(),
+                        timeout=STELLAR_ANCHOR_TIMEOUT_SECONDS,
+                    ),
                 )
-                .add_memo(HashMemo(evidence_hash_bytes))
-                .set_timeout(STELLAR_ANCHOR_TIMEOUT_SECONDS)
-                .build()
-            )
-            transaction.sign(keypair)
-            response: dict[str, Any] = await asyncio.wait_for(
-                server.submit_transaction(transaction),
-                timeout=STELLAR_ANCHOR_TIMEOUT_SECONDS,
-            )
+                if base_fee > settings.STELLAR_MAX_BASE_FEE:
+                    return _anchor_error(
+                        "Recommended Stellar base fee exceeds STELLAR_MAX_BASE_FEE"
+                    )
+                transaction = (
+                    TransactionBuilder(
+                        source_account=source_account,
+                        network_passphrase=_network_passphrase(),
+                        base_fee=base_fee,
+                    )
+                    .append_manage_data_op(
+                        data_name="agenttrust_hash",
+                        data_value=evidence_hash,
+                        source=keypair.public_key,
+                    )
+                    .add_memo(HashMemo(evidence_hash_bytes))
+                    .set_timeout(STELLAR_ANCHOR_TIMEOUT_SECONDS)
+                    .build()
+                )
+                transaction.sign(keypair)
+                response: dict[str, Any] = await asyncio.wait_for(
+                    server.submit_transaction(transaction),
+                    timeout=STELLAR_ANCHOR_TIMEOUT_SECONDS,
+                )
 
         return {
             "tx_hash": response.get("hash"),
@@ -225,8 +250,8 @@ async def submit_hash_to_stellar(evidence_hash: str) -> StellarAnchorResult:
         logger.error("Stellar anchoring timed out")
         return _anchor_error("Stellar Horizon request timed out")
     except NotFoundError:
-        logger.error("Stellar account not found after Friendbot funding attempt")
-        return _anchor_error("Stellar account not found")
+        logger.error("Configured Stellar Mainnet account was not found")
+        return _anchor_error("Configured Stellar Mainnet account was not found")
     except BadRequestError as exc:
         logger.error("Stellar transaction rejected: %s", exc)
         return _anchor_error(str(exc))
@@ -243,12 +268,13 @@ async def anchor_run_to_stellar(db: AsyncSession, run_id: Any) -> Run:
         raise ValueError(f"Run not found: {run_id}")
     if run.status not in TERMINAL_RUN_STATUSES:
         return run
-    if run.stellar_transaction and run.anchor_status == "anchored":
+    if run.stellar_transaction:
         return run
 
     anchor_fields = await anchor_run_hash(run)
     run.hash = anchor_fields["hash"]
     run.stellar_transaction = anchor_fields["stellar_transaction"]
+    run.stellar_network = anchor_fields["stellar_network"]
     run.stellar_ledger_sequence = anchor_fields["stellar_ledger_sequence"]
     run.anchored_at = anchor_fields["anchored_at"]
     run.anchor_status = anchor_fields["anchor_status"]
@@ -258,14 +284,20 @@ async def anchor_run_to_stellar(db: AsyncSession, run_id: Any) -> Run:
     return run
 
 
-async def verify_run_receipt(run: Run, *, network: str = "testnet") -> StellarReceipt:
+async def verify_run_receipt(
+    run: Run,
+    *,
+    network: str | None = None,
+) -> StellarReceipt:
     """Verify stored Stellar receipt against the local execution hash."""
     tx_hash = run.stellar_transaction
-    explorer_url = stellar_explorer_url(tx_hash, network)
+    active_network = network or run.stellar_network or settings.STELLAR_NETWORK
+    explorer_url = stellar_explorer_url(tx_hash, active_network)
     if not tx_hash or not run.hash:
         return {
             "verified": False,
             "tx_hash": tx_hash,
+            "network": active_network,
             "ledger": run.stellar_ledger_sequence,
             "explorer_url": explorer_url,
             "timestamp": run.anchored_at.isoformat() if run.anchored_at else None,
@@ -273,17 +305,30 @@ async def verify_run_receipt(run: Run, *, network: str = "testnet") -> StellarRe
             "error": None,
         }
 
-    stellar_info = await verify_stellar_transaction(
-        tx_hash,
-        expected_hash_bytes=hash_to_bytes(run.hash),
-    )
+    candidate_networks = [active_network]
+    if network is None and run.stellar_network is None and "testnet" not in candidate_networks:
+        candidate_networks.append("testnet")
+
+    stellar_info: dict[str, Any] = {}
+    verified_network = active_network
+    for candidate_network in candidate_networks:
+        stellar_info = await verify_stellar_transaction(
+            tx_hash,
+            expected_hash_bytes=hash_to_bytes(run.hash),
+            network=candidate_network,
+        )
+        if stellar_info.get("exists") and stellar_info.get("memo_matches"):
+            verified_network = candidate_network
+            break
+
     exists = bool(stellar_info.get("exists"))
     memo_matches = bool(stellar_info.get("memo_matches"))
     return {
         "verified": exists and memo_matches,
         "tx_hash": tx_hash,
+        "network": verified_network,
         "ledger": stellar_info.get("ledger") or run.stellar_ledger_sequence,
-        "explorer_url": explorer_url,
+        "explorer_url": stellar_explorer_url(tx_hash, verified_network),
         "timestamp": stellar_info.get("created_at") or (run.anchored_at.isoformat() if run.anchored_at else None),
         "anchor_status": "anchored" if exists and memo_matches else (run.anchor_status or "pending_anchor"),
         "error": stellar_info.get("error"),

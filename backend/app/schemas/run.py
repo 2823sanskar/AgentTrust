@@ -38,6 +38,7 @@ class RunResponse(BaseModel):
     created_at: datetime
     hash: Optional[str]
     stellar_transaction: Optional[str]
+    stellar_network: Optional[str] = None
     evidence_hash: Optional[str] = None
     stellar_tx_hash: Optional[str] = None
     stellar_ledger_sequence: Optional[int] = None
@@ -65,6 +66,7 @@ class VerificationResponse(BaseModel):
     computed_hash: str
     hashes_match: bool
     stellar_transaction: Optional[str]
+    stellar_network: Optional[str] = None
     evidence_hash: Optional[str] = None
     stellar_tx_hash: Optional[str] = None
     stellar_ledger_sequence: Optional[int] = None

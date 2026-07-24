@@ -232,11 +232,20 @@ async def execute_agent(
         created_at=created_at,
         hash=execution_hash,
         stellar_transaction=None,
+        stellar_network=settings.STELLAR_NETWORK,
         stellar_ledger_sequence=None,
         anchored_at=None,
         anchor_status="pending_anchor",
-        user_stellar_wallet_address=user.stellar_wallet_address if user else None,
-        user_stellar_wallet_network=user.stellar_wallet_network if user else None,
+        user_stellar_wallet_address=(
+            user.stellar_wallet_address
+            if user and user.stellar_wallet_network == settings.STELLAR_NETWORK
+            else None
+        ),
+        user_stellar_wallet_network=(
+            user.stellar_wallet_network
+            if user and user.stellar_wallet_network == settings.STELLAR_NETWORK
+            else None
+        ),
     )
     db.add(run)
     await db.flush()
@@ -325,6 +334,7 @@ async def _start_interactive_desktop_run(
         created_at=created_at,
         hash=None,
         stellar_transaction=None,
+        stellar_network=settings.STELLAR_NETWORK,
         stellar_ledger_sequence=None,
         anchored_at=None,
         anchor_status="pending_anchor",
@@ -334,6 +344,16 @@ async def _start_interactive_desktop_run(
         session_token=session_token,
         desktop_status="pending",
         last_heartbeat=created_at,
+        user_stellar_wallet_address=(
+            user.stellar_wallet_address
+            if user and user.stellar_wallet_network == settings.STELLAR_NETWORK
+            else None
+        ),
+        user_stellar_wallet_network=(
+            user.stellar_wallet_network
+            if user and user.stellar_wallet_network == settings.STELLAR_NETWORK
+            else None
+        ),
     )
     db.add(run)
     await db.flush()
@@ -474,10 +494,11 @@ async def verify_run(db: AsyncSession, run_id: uuid.UUID) -> VerificationRespons
     hashes_match = computed_hash == run.hash
 
     # Verify Stellar transaction
-    receipt = await verify_run_receipt(run, network=settings.STELLAR_NETWORK)
+    receipt = await verify_run_receipt(run)
     stellar_verified = receipt["verified"]
     if stellar_verified:
         run.anchor_status = "anchored"
+        run.stellar_network = receipt["network"] or run.stellar_network
         if receipt["ledger"]:
             run.stellar_ledger_sequence = receipt["ledger"]
         if receipt["timestamp"] and not run.anchored_at:
@@ -506,6 +527,7 @@ async def verify_run(db: AsyncSession, run_id: uuid.UUID) -> VerificationRespons
         computed_hash=computed_hash,
         hashes_match=hashes_match,
         stellar_transaction=run.stellar_transaction,
+        stellar_network=receipt["network"] or run.stellar_network,
         evidence_hash=run.hash,
         stellar_tx_hash=run.stellar_transaction,
         stellar_ledger_sequence=receipt["ledger"],
@@ -546,6 +568,7 @@ def _run_to_response(run: Run) -> RunResponse:
         created_at=run.created_at,
         hash=run.hash,
         stellar_transaction=run.stellar_transaction,
+        stellar_network=run.stellar_network,
         evidence_hash=run.hash,
         stellar_tx_hash=run.stellar_transaction,
         stellar_ledger_sequence=run.stellar_ledger_sequence,
@@ -553,8 +576,20 @@ def _run_to_response(run: Run) -> RunResponse:
         anchor_status=run.anchor_status,
         agent_name=run.agent.name if run.agent else None,
         user_name=run.user.name if run.user else None,
-        user_stellar_wallet_address=run.user_stellar_wallet_address or (run.user.stellar_wallet_address if run.user else None),
-        user_stellar_wallet_network=run.user_stellar_wallet_network or (run.user.stellar_wallet_network if run.user else None),
+        user_stellar_wallet_address=run.user_stellar_wallet_address
+        or (
+            run.user.stellar_wallet_address
+            if run.user
+            and run.user.stellar_wallet_network == settings.STELLAR_NETWORK
+            else None
+        ),
+        user_stellar_wallet_network=run.user_stellar_wallet_network
+        or (
+            run.user.stellar_wallet_network
+            if run.user
+            and run.user.stellar_wallet_network == settings.STELLAR_NETWORK
+            else None
+        ),
         routing_mode=routing_mode,
     )
 

@@ -8,6 +8,7 @@ import {
   Shield,
   XCircle,
 } from "lucide-react";
+import { stellarTransactionUrl } from "@/lib/stellar-network";
 
 interface ActionLogItem {
   step: number;
@@ -23,6 +24,7 @@ interface VerificationPanelProps {
   executionTime: number;
   evidenceHash: string;
   stellarTxId: string | null;
+  stellarNetwork?: string | null;
   actionLog: ActionLogItem[];
 }
 
@@ -32,6 +34,7 @@ export default function VerificationPanel({
   executionTime,
   evidenceHash,
   stellarTxId,
+  stellarNetwork,
   actionLog,
 }: VerificationPanelProps) {
   const [isMounted, setIsMounted] = useState(false);
@@ -47,7 +50,7 @@ export default function VerificationPanel({
 
   const isSuccess = status === "success" && exitCode === 0;
   const stellarUrl = stellarTxId
-    ? `https://stellar.expert/explorer/testnet/tx/${stellarTxId}`
+    ? stellarTransactionUrl(stellarTxId, stellarNetwork)
     : null;
 
   return (
@@ -83,7 +86,7 @@ export default function VerificationPanel({
           </div>
         </div>
         <div>
-          <span className="block text-xs font-medium text-[#6b6257] mb-1">Stellar Testnet Transaction Anchor Proof</span>
+          <span className="block text-xs font-medium text-[#6b6257] mb-1">Stellar Transaction Anchor Proof</span>
           {stellarUrl && stellarTxId ? (
             <a
               href={stellarUrl}

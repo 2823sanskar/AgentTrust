@@ -36,6 +36,15 @@ ACCESS_TOKEN = os.getenv("AGENTTRUST_ACCESS_TOKEN")
 EMAIL = os.getenv("AGENTTRUST_EMAIL")
 PASSWORD = os.getenv("AGENTTRUST_PASSWORD")
 AGENT_ID = os.getenv("AGENTTRUST_AGENT_ID")
+CONFIGURED_STELLAR_NETWORK = os.getenv("STELLAR_NETWORK", "mainnet").strip().lower()
+if CONFIGURED_STELLAR_NETWORK not in {"mainnet", "public", "pubnet"}:
+    raise SystemExit(
+        "AgentTrust production verification is Mainnet-only. "
+        "Set STELLAR_NETWORK=mainnet."
+    )
+STELLAR_NETWORK = "mainnet"
+STELLAR_NETWORK_LABEL = "Mainnet"
+STELLAR_EXPLORER_NETWORK = "public"
 
 SMOKE_COMMAND = (
     "python -c \"import pathlib,urllib.request; "
@@ -151,6 +160,18 @@ async def verify_frontend(client: httpx.AsyncClient) -> None:
 
 async def verify_worker_health(client: httpx.AsyncClient) -> None:
     print("\nTask 2: Verifying backend cloud worker health...")
+    app_health = await request_json(client, "GET", f"{BACKEND_URL}/api/health")
+    backend_stellar_network = str(app_health.get("stellar_network") or "").lower()
+    if backend_stellar_network != STELLAR_NETWORK:
+        fail(
+            "Backend Stellar network does not match this deployment check: "
+            f"expected={STELLAR_NETWORK!r}, actual={backend_stellar_network!r}."
+        )
+    if not app_health.get("stellar_configured"):
+        fail("Backend Mainnet keypair is not configured.")
+    if not app_health.get("stellar_ready"):
+        fail("Backend did not complete its Stellar Mainnet startup check.")
+
     health = await request_json(client, "GET", f"{BACKEND_URL}/api/sandbox/health")
     if health.get("mode") != "cloud":
         fail(f"Expected backend cloud mode, got {health.get('mode')!r}.")
@@ -162,7 +183,10 @@ async def verify_worker_health(client: httpx.AsyncClient) -> None:
             f"network_mode={worker.get('network_mode')}, "
             f"read_only_root={worker.get('read_only_root')}"
         )
-    ok("AWS worker is healthy with high-freedom behavioral profile.")
+    ok(
+        "AWS worker is healthy with high-freedom behavioral profile "
+        f"and Stellar {STELLAR_NETWORK_LABEL} configuration."
+    )
 
 
 async def execute_and_verify(
@@ -210,13 +234,35 @@ async def execute_and_verify(
         fail("Run hash was not persisted.")
     if not stellar_tx:
         fail("Run was saved, but stellar_transaction is missing.")
+    if stored.get("stellar_network") != STELLAR_NETWORK:
+        fail(
+            "Run was not recorded as a Stellar Mainnet anchor: "
+            f"{stored.get('stellar_network')!r}."
+        )
 
-    ok("Telemetry and Stellar Testnet anchor verified.")
-    print("\nALL CHECKS PASSED. Deployment is operational on Stellar Testnet.")
+    receipt = await request_json(
+        client,
+        "GET",
+        f"{BACKEND_URL}/api/verify/{run_id}",
+    )
+    if not receipt.get("stellar_verified") or not receipt.get("hashes_match"):
+        fail(f"Public verification did not validate the Mainnet receipt: {receipt!r}")
+    explorer_url = str(receipt.get("explorer_url") or "")
+    if "/explorer/public/tx/" not in explorer_url:
+        fail(f"Verification returned a non-Mainnet explorer URL: {explorer_url!r}")
+
+    ok(f"Telemetry and Stellar {STELLAR_NETWORK_LABEL} anchor verified.")
+    print(
+        "\nALL CHECKS PASSED. Deployment is operational on "
+        f"Stellar {STELLAR_NETWORK_LABEL}."
+    )
     print(f"Run ID: {run_id}")
     print(f"Routing: {routing_mode}")
-    print(f"Stellar Testnet Tx: {stellar_tx}")
-    print(f"Verification URL: https://stellar.expert/explorer/testnet/tx/{stellar_tx}")
+    print(f"Stellar {STELLAR_NETWORK_LABEL} Tx: {stellar_tx}")
+    print(
+        "Verification URL: "
+        f"https://stellar.expert/explorer/{STELLAR_EXPLORER_NETWORK}/tx/{stellar_tx}"
+    )
     print(f"Output: {stdout.strip()}")
 
 

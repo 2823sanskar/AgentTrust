@@ -9,6 +9,8 @@ services:
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
+      STELLAR_NETWORK: mainnet
+      STELLAR_HORIZON_URL: https://horizon.stellar.org
       SANDBOX_WORKER_URL: http://sandbox-worker:9000
     depends_on:
       sandbox-worker:

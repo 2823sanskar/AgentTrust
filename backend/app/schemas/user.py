@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class UserRegister(BaseModel):
@@ -28,6 +28,13 @@ class UserResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @model_validator(mode="after")
+    def hide_legacy_non_mainnet_wallet(self):
+        if self.stellar_wallet_network != "mainnet":
+            self.stellar_wallet_address = None
+            self.stellar_wallet_network = None
+        return self
+
 
 class WalletConnectRequest(BaseModel):
     stellar_wallet_address: str = Field(
@@ -35,7 +42,11 @@ class WalletConnectRequest(BaseModel):
         pattern=r"^G[A-Z2-7]{55}$",
         description="Stellar public account ID.",
     )
-    stellar_wallet_network: str = Field(default="testnet", max_length=20)
+    stellar_wallet_network: str = Field(
+        default="mainnet",
+        pattern=r"^mainnet$",
+        max_length=20,
+    )
     signature_message: str = Field(..., min_length=16, max_length=500)
     signature: str = Field(..., min_length=16, max_length=500)
 

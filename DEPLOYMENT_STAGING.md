@@ -1,4 +1,4 @@
-# AgentTrust Public Staging Deployment
+# AgentTrust Public Deployment
 
 This deployment keeps the Docker sandbox on EC2 where it can access a real Docker daemon.
 
@@ -17,7 +17,7 @@ AWS EC2
 Neon
   -> Postgres database
 
-Stellar Testnet
+Stellar Mainnet
   -> execution hash anchoring
 ```
 
@@ -56,10 +56,12 @@ Required values:
 ```bash
 DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@HOST.neon.tech/DBNAME?ssl=require
 JWT_SECRET=replace-with-a-long-random-secret
-STELLAR_SECRET_KEY=your_stellar_testnet_secret_key
-STELLAR_PUBLIC_KEY=your_stellar_testnet_public_key
-STELLAR_NETWORK=testnet
-STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
+STELLAR_SECRET_KEY=your_funded_stellar_mainnet_secret_key
+STELLAR_PUBLIC_KEY=GCPICED67VZ2VUESHTKMXZMWJJVSV4ZFULILSUQJS2GL77KBRHILDIN3
+STELLAR_NETWORK=mainnet
+STELLAR_HORIZON_URL=https://horizon.stellar.org
+STELLAR_MAX_BASE_FEE=10000
+ENVIRONMENT=production
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://your-vercel-app.vercel.app,http://YOUR_EC2_PUBLIC_IP
 ```
 
@@ -81,6 +83,8 @@ Expected:
 
 - backend status is `healthy`
 - `stellar_configured` is `true`
+- `stellar_ready` is `true`
+- `stellar_network` is `mainnet`
 - sandbox `mode` is `cloud`
 - worker Docker daemon is ready
 - worker profile shows `network_mode=bridge`
@@ -97,6 +101,7 @@ Set this Vercel environment variable:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://YOUR_EC2_PUBLIC_IP/api
+NEXT_PUBLIC_STELLAR_NETWORK=mainnet
 ```
 
 Deploy the frontend.
@@ -123,8 +128,26 @@ From your local machine:
 $env:AGENTTRUST_FRONTEND_URL="https://your-vercel-app.vercel.app"
 $env:AGENTTRUST_BACKEND_URL="http://YOUR_EC2_PUBLIC_IP"
 $env:AGENTTRUST_ACCESS_TOKEN="your-jwt-token"
+$env:STELLAR_NETWORK="mainnet"
 backend\.venv\Scripts\python.exe verify_deployment.py
 ```
+
+The backend now fails startup in production if the keypair is invalid, the
+public and secret keys do not match, the account does not exist on Mainnet, or
+the configured Horizon endpoint reports a non-Mainnet network passphrase.
+Do not overwrite the complete EC2 environment file when switching networks;
+edit only the five `STELLAR_*` values so database, JWT, PgBouncer, and worker
+configuration remains intact.
+
+Existing wallet links recorded as Testnet are hidden from the active user
+profile and excluded from new runs until the user reconnects Freighter while it
+is set to Mainnet. Historical run snapshots and Testnet receipts remain
+read-only and verifiable.
+
+The production backend runs one async Uvicorn worker so all transactions from
+the shared anchor account are serialized safely. Scale the sandbox worker
+independently; adding backend process workers requires Stellar channel accounts
+or a distributed transaction-submission queue.
 
 The script must confirm:
 

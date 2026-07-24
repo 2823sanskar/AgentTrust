@@ -11,9 +11,7 @@ import {
   ExternalLink, CheckCircle2, XCircle,
   Copy, Check, Link2, Wallet, Clock, Bot, Hash, Fingerprint
 } from "lucide-react";
-
-const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
-const stellarTxUrl = (tx: string) => `https://stellar.expert/explorer/${STELLAR_NETWORK === "mainnet" ? "public" : "testnet"}/tx/${tx}`;
+import { stellarTransactionUrl } from "@/lib/stellar-network";
 
 export default function VerifyPage() {
   const params = useParams();
@@ -52,7 +50,7 @@ export default function VerifyPage() {
       border: "border-[#8fcac4]",
       label: "Verified",
       headline: "Cryptographically Verified",
-      description: "This execution hash matches AgentTrust records and is anchored on Stellar Testnet.",
+      description: "This execution hash matches AgentTrust records and is anchored on Stellar.",
     },
     tampered: {
       icon: ShieldX,
@@ -101,7 +99,15 @@ export default function VerifyPage() {
 
   const config = statusConfig[result.verification_status];
   const StatusIcon = config.icon;
-  const stellarUrl = result.explorer_url || (result.stellar_transaction ? stellarTxUrl(result.stellar_transaction) : null);
+  const stellarUrl =
+    result.explorer_url ||
+    (result.stellar_transaction
+      ? stellarTransactionUrl(
+          result.stellar_transaction,
+          result.stellar_network ||
+            result.run_details.stellar_network,
+        )
+      : null);
   const outputHash = result.stored_hash || result.computed_hash;
 
   return (
@@ -298,7 +304,7 @@ export default function VerifyPage() {
                     {result.run_details.user_stellar_wallet_address}
                   </code>
                   <p className="text-xs text-[#6b6257] capitalize">
-                    Connected wallet network: {result.run_details.user_stellar_wallet_network || "testnet"}
+                    Connected wallet network: {result.run_details.user_stellar_wallet_network || "not recorded"}
                   </p>
                 </div>
               ) : (

@@ -1,5 +1,5 @@
 """
-Stellar Testnet integration for anchoring execution hashes on-chain.
+Stellar integration for anchoring execution hashes on-chain.
 Uses a self-payment transaction with a HashMemo containing the SHA-256 digest.
 Uses the async ServerAsync client to avoid blocking the asyncio event loop.
 """
@@ -37,15 +37,29 @@ def _get_keypair() -> Keypair:
     return Keypair.from_secret(settings.STELLAR_SECRET_KEY)
 
 
+def _active_network(network: str | None = None) -> str:
+    active_network = (network or settings.STELLAR_NETWORK).strip().lower()
+    if active_network not in {"mainnet", "testnet"}:
+        raise ValueError(f"Unsupported Stellar network: {active_network}")
+    return active_network
+
+
 def _network_passphrase() -> str:
-    if settings.STELLAR_NETWORK.lower() == "mainnet":
-        return Network.PUBLIC_NETWORK_PASSPHRASE
-    return Network.TESTNET_NETWORK_PASSPHRASE
+    return Network.PUBLIC_NETWORK_PASSPHRASE
+
+
+def _horizon_url(network: str | None = None) -> str:
+    active_network = _active_network(network)
+    if active_network == settings.STELLAR_NETWORK:
+        return settings.STELLAR_HORIZON_URL
+    if active_network == "mainnet":
+        return "https://horizon.stellar.org"
+    return "https://horizon-testnet.stellar.org"
 
 
 async def anchor_hash_on_stellar(execution_hash_bytes: bytes) -> Optional[str]:
     """
-    Anchor a 32-byte SHA-256 hash on the Stellar Testnet.
+    Anchor a 32-byte SHA-256 hash on the configured Stellar network.
 
     Creates a minimal self-payment transaction (0.0000001 XLM to self)
     with the execution hash as a HashMemo.
@@ -61,6 +75,11 @@ async def anchor_hash_on_stellar(execution_hash_bytes: bytes) -> Optional[str]:
     """
     try:
         keypair = _get_keypair()
+        configured_public_key = (settings.STELLAR_PUBLIC_KEY or "").strip()
+        if not configured_public_key or configured_public_key != keypair.public_key:
+            raise ValueError(
+                "STELLAR_PUBLIC_KEY must match STELLAR_SECRET_KEY for Mainnet anchoring"
+            )
 
         async with ServerAsync(
             horizon_url=settings.STELLAR_HORIZON_URL,
@@ -72,12 +91,24 @@ async def anchor_hash_on_stellar(execution_hash_bytes: bytes) -> Optional[str]:
                 timeout=STELLAR_TIMEOUT_SECONDS,
             )
 
+            base_fee = max(
+                100,
+                await asyncio.wait_for(
+                    server.fetch_base_fee(),
+                    timeout=STELLAR_TIMEOUT_SECONDS,
+                ),
+            )
+            if base_fee > settings.STELLAR_MAX_BASE_FEE:
+                raise ValueError(
+                    "Recommended Stellar base fee exceeds STELLAR_MAX_BASE_FEE"
+                )
+
             # Build transaction with hash memo
             transaction = (
                 TransactionBuilder(
                     source_account=source_account,
                     network_passphrase=_network_passphrase(),
-                    base_fee=100,
+                    base_fee=base_fee,
                 )
                 .append_payment_op(
                     destination=keypair.public_key,  # Self-payment
@@ -104,7 +135,10 @@ async def anchor_hash_on_stellar(execution_hash_bytes: bytes) -> Optional[str]:
         logger.error("Stellar transaction timed out after %ds", STELLAR_TIMEOUT_SECONDS)
         return None
     except NotFoundError:
-        logger.error("Stellar account not found. Fund it via Friendbot first.")
+        logger.error(
+            "Stellar account not found on %s. Check the configured account and network.",
+            settings.STELLAR_NETWORK,
+        )
         return None
     except BadRequestError as e:
         logger.error(f"Stellar transaction failed: {e}")
@@ -115,10 +149,12 @@ async def anchor_hash_on_stellar(execution_hash_bytes: bytes) -> Optional[str]:
 
 
 async def verify_stellar_transaction(
-    tx_hash: str, expected_hash_bytes: bytes | None = None
+    tx_hash: str,
+    expected_hash_bytes: bytes | None = None,
+    network: str | None = None,
 ) -> dict:
     """
-    Verify a transaction exists on Stellar Testnet and retrieve its memo.
+    Verify a transaction exists on the configured Stellar network and retrieve its memo.
 
     Uses the async ServerAsync client so this function never blocks
     the asyncio event loop.
@@ -128,7 +164,7 @@ async def verify_stellar_transaction(
     """
     try:
         async with ServerAsync(
-            horizon_url=settings.STELLAR_HORIZON_URL,
+            horizon_url=_horizon_url(network),
             client=AiohttpClient(),
         ) as server:
             tx = await asyncio.wait_for(

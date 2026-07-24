@@ -85,6 +85,7 @@ export interface Run {
   created_at: string;
   hash: string | null;
   stellar_transaction: string | null;
+  stellar_network: "mainnet" | "testnet" | string | null;
   stellar_ledger_sequence: number | null;
   anchored_at: string | null;
   anchor_status: "anchored" | "pending_anchor" | "failed_anchor" | string | null;
@@ -155,6 +156,7 @@ export interface VerificationResult {
   computed_hash: string;
   hashes_match: boolean;
   stellar_transaction: string | null;
+  stellar_network: "mainnet" | "testnet" | string | null;
   stellar_ledger_sequence: number | null;
   anchored_at: string | null;
   anchor_status: string | null;

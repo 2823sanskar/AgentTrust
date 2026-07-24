@@ -13,9 +13,7 @@ import {
   FileText, Clock, CheckCircle2, XCircle,
   Shield, Bot, Calendar, ExternalLink, Copy, Check, Link2, Wallet
 } from "lucide-react";
-
-const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
-const stellarTxUrl = (tx: string) => `https://stellar.expert/explorer/${STELLAR_NETWORK === "mainnet" ? "public" : "testnet"}/tx/${tx}`;
+import { stellarTransactionUrl } from "@/lib/stellar-network";
 
 export default function RunDetailPage() {
   const params = useParams();
@@ -36,7 +34,9 @@ export default function RunDetailPage() {
     }
   };
 
-  const stellarUrl = run?.stellar_transaction ? stellarTxUrl(run.stellar_transaction) : null;
+  const stellarUrl = run?.stellar_transaction
+    ? stellarTransactionUrl(run.stellar_transaction, run.stellar_network)
+    : null;
 
   if (loading) {
     return (
@@ -177,6 +177,7 @@ export default function RunDetailPage() {
               executionTime={run.execution_time ?? 0}
               evidenceHash={run.hash ?? ""}
               stellarTxId={run.stellar_transaction}
+              stellarNetwork={run.stellar_network}
               actionLog={run.action_log ?? []}
             />
           </div>
@@ -221,7 +222,7 @@ export default function RunDetailPage() {
             <div className="px-5 py-3 border-b border-[#e7ddc6] flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Shield className={`h-4 w-4 ${stellarUrl ? "text-[#007c89]" : "text-[#8b5e00]"}`} />
-                <span className="text-sm font-medium text-[#241c15]">Stellar Testnet Proof</span>
+                <span className="text-sm font-medium text-[#241c15]">Stellar Proof</span>
               </div>
               <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                 stellarUrl
@@ -276,7 +277,7 @@ export default function RunDetailPage() {
                       {run.user_stellar_wallet_address}
                     </code>
                     <p className="text-xs text-[#6b6257] capitalize">
-                      Connected wallet network: {run.user_stellar_wallet_network || "testnet"}
+                      Connected wallet network: {run.user_stellar_wallet_network || "not recorded"}
                     </p>
                   </div>
                 ) : (
