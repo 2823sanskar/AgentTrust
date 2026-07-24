@@ -85,6 +85,9 @@ async def execute_agent(
     if agent.status != "active":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Agent is inactive")
 
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+
     if is_interactive:
         return await _start_interactive_desktop_run(
             db,
@@ -92,12 +95,10 @@ async def execute_agent(
             agent_id,
             user_id,
             task,
+            user=user,
             vnc_port=vnc_port,
             websockify_port=websockify_port,
         )
-
-    user_result = await db.execute(select(User).where(User.id == user_id))
-    user = user_result.scalar_one_or_none()
 
     # 2. Generate Run ID
     run_id = uuid.uuid4()
@@ -292,6 +293,7 @@ async def _start_interactive_desktop_run(
     user_id: uuid.UUID,
     task: str,
     *,
+    user: User | None,
     vnc_port: int | None,
     websockify_port: int | None,
 ) -> RunResponse:
