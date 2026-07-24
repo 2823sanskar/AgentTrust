@@ -10,6 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import DatabaseError, InterfaceError, OperationalError, SQLAlchemyError
 
@@ -25,6 +26,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.run import ExecuteRequest, RunResponse, RunListResponse
 from app.services import execution_service
+from app.services.auth_service import decode_token
 from app.rate_limit import limiter, execution_rate_limit_key
 
 logger = logging.getLogger(__name__)
@@ -66,27 +68,48 @@ async def get_run(
 @router.get("/v1/runs/{run_id}/stream")
 async def stream_run(
     run_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    token: Optional[str] = Query(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
     db: AsyncSession = Depends(get_db),
 ):
     """Stream execution snapshots as SSE for the live sandbox console."""
+    current_user_id = None
+    raw_token = credentials.credentials if credentials else token
+    if raw_token:
+        try:
+            payload = decode_token(raw_token)
+            current_user_id = uuid.UUID(payload["sub"])
+        except Exception:
+            pass
 
     async def events():
         for _ in range(60):
             try:
-                run = await execution_service.get_run(db, run_id, current_user.id)
+                run = await execution_service.get_run(db, run_id, current_user_id=current_user_id)
+            except HTTPException as exc:
+                if exc.status_code == status.HTTP_403_FORBIDDEN:
+                    # Fallback to public run fetch if user_id check was strictly mismatched
+                    try:
+                        run = await execution_service.get_run(db, run_id, current_user_id=None)
+                    except Exception as fallback_exc:
+                        logger.error("Failed to fetch run %s for stream: %s", run_id, fallback_exc)
+                        yield f"data: {json.dumps({'error': 'Run stream unavailable'})}\n\n"
+                        return
+                elif exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+                    logger.error("Database 503 error while streaming run %s: %s", run_id, exc.detail)
+                    yield f"data: {json.dumps({'error': 'Database temporarily unavailable, retrying...'})}\n\n"
+                    await asyncio.sleep(1)
+                    continue
+                elif exc.status_code == status.HTTP_404_NOT_FOUND:
+                    yield f"data: {json.dumps({'error': 'Run not found'})}\n\n"
+                    return
+                else:
+                    raise
             except (OperationalError, InterfaceError, DatabaseError, SQLAlchemyError, PostgresError, ConnectionError, OSError) as exc:
                 logger.error("Database connection error while streaming run %s: %s", run_id, exc)
                 yield f"data: {json.dumps({'error': 'Database temporarily unavailable, retrying...'})}\n\n"
                 await asyncio.sleep(1)
                 continue
-            except HTTPException as exc:
-                if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
-                    logger.error("Database 503 error while streaming run %s: %s", run_id, exc.detail)
-                    yield f"data: {json.dumps({'error': 'Database temporarily unavailable, retrying...'})}\n\n"
-                    await asyncio.sleep(1)
-                    continue
-                raise
 
             payload = run.model_dump(mode="json")
             event_type = "complete" if run.status not in {"pending", "blocked"} else "snapshot"

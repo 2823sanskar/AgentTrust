@@ -5,7 +5,9 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   async rewrites() {
     const awsWorkerUrl = process.env.NEXT_PUBLIC_AWS_SANDBOX_URL;
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+    const apiOrigin = rawApiUrl ? rawApiUrl.replace(/\/api\/?$/, "") : "";
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || apiOrigin || "http://127.0.0.1:8000";
     const backendBase = backendUrl.replace(/\/$/, "");
     const rewrites = [
       {

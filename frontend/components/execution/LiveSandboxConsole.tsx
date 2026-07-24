@@ -161,7 +161,18 @@ function linesFromRun(run: Run): string[] {
 function resolveStreamUrl(runId?: string | null, streamUrl?: string | null): string {
   if (streamUrl) return streamUrl;
   if (!runId) return "";
-  return `/api/runs/${runId}/stream`;
+  const token =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("access_token") || window.localStorage.getItem("token") || ""
+      : "";
+  const query = token ? `?token=${encodeURIComponent(token)}` : "";
+
+  const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (configuredApiUrl) {
+    const base = configuredApiUrl.replace(/\/+$/, "");
+    return `${base}/v1/runs/${runId}/stream${query}`;
+  }
+  return `/api/runs/${runId}/stream${query}`;
 }
 
 export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
