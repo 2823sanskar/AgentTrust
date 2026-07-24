@@ -5,7 +5,6 @@ import { useAuth } from "@/lib/auth-context";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-  Shield,
   Menu,
   X,
   LogOut,
@@ -14,6 +13,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { StellarWalletButton } from "@/components/wallet/stellar-wallet-button";
+import { AgentTrustLogo } from "@/components/brand/AgentTrustLogo";
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -34,14 +34,8 @@ export function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#dfd5bd] bg-[#f6f1e7]/95 backdrop-blur-xl">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#241c15] bg-[#ffe01b] transition-transform group-hover:-rotate-6">
-              <Shield className="h-5 w-5 text-[#241c15]" />
-            </div>
-            <span className="text-lg font-bold text-[#241c15]">
-              AgentTrust
-            </span>
+          <Link href="/" className="flex shrink-0 items-center" aria-label="AgentTrust home">
+            <AgentTrustLogo className="h-auto w-[150px] sm:w-[178px]" priority />
           </Link>
 
           {/* Desktop nav */}

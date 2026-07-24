@@ -5,7 +5,8 @@ import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getErrorMessage } from "@/lib/api";
-import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { AgentTrustLogo } from "@/components/brand/AgentTrustLogo";
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
@@ -71,11 +72,10 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-md relative">
-        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-[24px] bg-gradient-to-br from-[#ffe01b] to-[#ffe01b] shadow-lg shadow-black/10 mb-4">
-            <Shield className="h-7 w-7 text-[#241c15]" />
-          </div>
+          <Link href="/" className="mb-5 inline-flex" aria-label="AgentTrust home">
+            <AgentTrustLogo className="h-auto w-[230px]" priority />
+          </Link>
           <h1 className="text-2xl font-bold text-[#241c15]">Welcome back</h1>
           <p className="text-[#6b6257] mt-1">Sign in to your AgentTrust account</p>
         </div>

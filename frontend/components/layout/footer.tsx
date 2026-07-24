@@ -1,5 +1,5 @@
-import { Shield } from "lucide-react";
 import Link from "next/link";
+import { AgentTrustLogo } from "@/components/brand/AgentTrustLogo";
 
 export function Footer() {
   return (
@@ -7,12 +7,9 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="md:col-span-2">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[#241c15] bg-[#ffe01b]">
-                <Shield className="h-4 w-4 text-[#241c15]" />
-              </div>
-              <span className="text-lg font-bold text-[#241c15]">AgentTrust</span>
-            </div>
+            <Link href="/" className="mb-4 inline-flex" aria-label="AgentTrust home">
+              <AgentTrustLogo className="h-auto w-[190px]" />
+            </Link>
             <p className="max-w-md text-sm text-[#6b6257]">
               Blockchain-backed execution verification and reputation platform for AI agents.
               Every execution logged, hashed, and anchored on-chain.
