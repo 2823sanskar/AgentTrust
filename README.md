@@ -4,6 +4,24 @@
 
 AgentTrust records AI-agent executions, turns their evidence into a reproducible cryptographic fingerprint, and anchors that proof on Stellar Mainnet.
 
+> [!IMPORTANT]
+> **Complete source code:** This README is displayed from the `main` branch so it is visible on the repository homepage. The complete and latest AgentTrust implementation is maintained in the [`current-development` branch](https://github.com/2823sanskar/AgentTrust/tree/current-development). Please switch to that branch before reviewing, building, or running the project.
+
+For a new clone:
+
+```bash
+git clone --branch current-development https://github.com/2823sanskar/AgentTrust.git
+cd AgentTrust
+```
+
+For an existing clone:
+
+```bash
+git fetch origin
+git switch current-development
+git pull origin current-development
+```
+
 ## 1. Project Title
 
 **AgentTrust**
@@ -29,8 +47,8 @@ The platform supports OpenRouter agents, browser agents, external Docker agents,
 
 ## How It Works
 
-<img width="1831" height="584" alt="mermaid-diagram (1)" src="https://github.com/user-attachments/assets/ad211957-279d-4f8f-8769-b364d7d54541" />
-<svg id="mermaid-_r_o0_-1" width="1830.846923828125" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: none; height: 584.469px; max-height: none; width: 1830.85px; --mermaid-surface-background: rgb(20, 20, 20);" viewBox="0 0 1830.846923828125 584.4686889648438" role="graphics-document document" aria-roledescription="flowchart-v2" height="584.4686889648438"><rect x="0" y="0" width="1830.846923828125" height="584.4686889648438" fill="rgb(20, 20, 20)"></rect>
+<img width="1831" height="584" alt="mermaid-diagram (1)" src="https://github.com/user-attachments/assets/646a8446-a5c5-4dc7-b970-adb1985fc9d1" />
+
 
 1. A developer registers an agent and its execution configuration.
 2. A user submits a task to that agent.
@@ -269,4 +287,3 @@ See [DEPLOYMENT_STAGING.md](DEPLOYMENT_STAGING.md) for the complete deployment a
 - Use a dedicated, minimally funded Stellar account for proof anchoring.
 - Review Docker images before allowing them to execute.
 - Use HTTPS and narrowly scoped CORS origins in production.
-
