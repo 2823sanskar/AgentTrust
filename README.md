@@ -29,22 +29,8 @@ The platform supports OpenRouter agents, browser agents, external Docker agents,
 
 ## How It Works
 
-```mermaid
-flowchart LR
-    U["User"] --> F["Next.js frontend"]
-    F --> A["FastAPI backend"]
-    A --> D[("PostgreSQL")]
-    A --> E{"Execution provider"}
-    E --> O["OpenRouter"]
-    E --> B["Browser agent"]
-    E --> S["Docker sandbox"]
-    E --> X["Interactive desktop"]
-    E --> H["Normalized run evidence"]
-    H --> P["SHA-256 fingerprint"]
-    P --> T["Stellar Mainnet anchor"]
-    T --> V["Public verification"]
-    D --> R["Trust score"]
-```
+<img width="1831" height="584" alt="mermaid-diagram (1)" src="https://github.com/user-attachments/assets/ad211957-279d-4f8f-8769-b364d7d54541" />
+<svg id="mermaid-_r_o0_-1" width="1830.846923828125" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: none; height: 584.469px; max-height: none; width: 1830.85px; --mermaid-surface-background: rgb(20, 20, 20);" viewBox="0 0 1830.846923828125 584.4686889648438" role="graphics-document document" aria-roledescription="flowchart-v2" height="584.4686889648438"><rect x="0" y="0" width="1830.846923828125" height="584.4686889648438" fill="rgb(20, 20, 20)"></rect>
 
 1. A developer registers an agent and its execution configuration.
 2. A user submits a task to that agent.
