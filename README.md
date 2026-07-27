@@ -1,316 +1,286 @@
 # AgentTrust
 
-AgentTrust is a blockchain-backed execution verification and trust scoring platform for AI agents. It lets users register agents, run tasks through sandboxed execution providers, capture execution evidence, compute proof hashes, and anchor those proofs on Stellar Mainnet.
+> Verify AI agents before you trust them.
 
-The project is organized as a full-stack app:
+AgentTrust records AI-agent executions, turns their evidence into a reproducible cryptographic fingerprint, and anchors that proof on Stellar Mainnet.
 
-- **Frontend:** Next.js app for registration, login, agent discovery, execution dashboards, live sandbox views, wallet connection, and public verification pages.
-- **Backend:** FastAPI API for auth, agent management, executions, trust scores, verification, desktop sessions, and Stellar anchoring.
-- **Sandbox worker:** Standalone FastAPI worker that runs external Docker agents and returns structured telemetry.
-- **Deployment stack:** Docker Compose production stack for backend, sandbox worker, and Nginx, with Vercel recommended for the frontend.
+## 1. Project Title
+
+**AgentTrust**
+
+## 2. Project Description
+
+AgentTrust is a full-stack, blockchain-backed verification and reputation platform for AI agents. Developers can register agents, execute tasks through supported providers, inspect captured telemetry, and share a public proof for each run.
+
+For every execution, AgentTrust stores the output, logs, exit status, timing, and action history. It normalizes that evidence into a SHA-256 hash and anchors the hash in a Stellar Mainnet transaction. Verified execution history is then used to calculate an agent trust score based on reliability, on-chain verification, and response time.
+
+The platform supports OpenRouter agents, browser agents, external Docker agents, and interactive Docker desktop sessions.
+
+## 3. Contract Address
+
+| Field | Value |
+| --- | --- |
+| Network | Stellar Mainnet |
+| Contract / anchor address | `GCPICED67VZ2VUESHTKMXZMWJJVSV4ZFULILSUQJS2GL77KBRHILDIN3` |
+| Explorer | [View on Stellar Expert](https://stellar.expert/explorer/public/account/GCPICED67VZ2VUESHTKMXZMWJJVSV4ZFULILSUQJS2GL77KBRHILDIN3) |
+
+> [!IMPORTANT]
+> AgentTrust does not deploy an EVM or Soroban smart contract. The address above is the public Stellar account used to anchor execution proofs. Each proof is a signed self-payment transaction containing the run's 32-byte SHA-256 evidence hash in a `HashMemo`.
+
+## How It Works
+
+```mermaid
+flowchart LR
+    U["User"] --> F["Next.js frontend"]
+    F --> A["FastAPI backend"]
+    A --> D[("PostgreSQL")]
+    A --> E{"Execution provider"}
+    E --> O["OpenRouter"]
+    E --> B["Browser agent"]
+    E --> S["Docker sandbox"]
+    E --> X["Interactive desktop"]
+    E --> H["Normalized run evidence"]
+    H --> P["SHA-256 fingerprint"]
+    P --> T["Stellar Mainnet anchor"]
+    T --> V["Public verification"]
+    D --> R["Trust score"]
+```
+
+1. A developer registers an agent and its execution configuration.
+2. A user submits a task to that agent.
+3. AgentTrust routes the task to OpenRouter, a browser runner, or a Docker sandbox.
+4. The backend captures stdout, stderr, output, timing, exit code, and action logs.
+5. The normalized evidence is hashed and anchored on Stellar Mainnet.
+6. Anyone can verify the run, its evidence hash, and its Stellar transaction.
 
 ## Core Features
 
-- Register and manage AI agents with metadata, provider, model, Docker image, commands, timeout, category, and required environment variables.
-- Execute agents against user tasks and persist stdout, stderr, exit code, timing, final output, action logs, routing mode, and run status.
-- Support multiple execution providers:
-  - `openrouter`
-  - `browser`
-  - `external_docker`
-- Run external Docker agents locally or through a decoupled sandbox worker.
-- Stream run snapshots for live execution consoles.
-- Support interactive desktop execution sessions with VNC/noVNC connection metadata.
-- Compute evidence hashes for every execution.
-- Anchor run evidence on Stellar Mainnet.
-- Verify public run proofs by recomputing hashes and checking stored blockchain metadata.
-- Calculate trust scores from verified execution history.
-- Connect Stellar wallets through the frontend.
+- Agent registration, discovery, ownership, and lifecycle management
+- JWT authentication and Stellar wallet connection through Freighter
+- OpenRouter, browser, and external Docker execution providers
+- Local or remote Docker sandbox worker support
+- Live execution snapshots and persisted run telemetry
+- Interactive noVNC desktop sessions with heartbeat and cleanup handling
+- Deterministic SHA-256 evidence fingerprints
+- Stellar Mainnet transaction anchoring and public proof verification
+- Trust scores calculated from success rate, verified runs, latency, and failures
+- Production deployment stack with Nginx, FastAPI, and a dedicated sandbox worker
 
-## Repository Layout
+## Technology Stack
 
-```text
-.
-+-- backend/                 FastAPI app, database models, API routes, services, tests, Alembic migrations
-+-- frontend/                Next.js 16 app, React components, wallet integration, API client
-+-- sandbox-worker/          Standalone Docker execution worker
-+-- deploy/                  Production Docker Compose and Nginx config
-+-- external-agents/         Example external agent implementations
-+-- scripts/                 Local development and build helper scripts
-+-- tests/                   Test fixtures and compliant external agent sample
-+-- codex_ppt_build/         Architecture deck generation assets
-+-- DEPLOYMENT_STAGING.md    Public deployment guide
-+-- mainnet_audit_report.md  Mainnet readiness/audit notes
-+-- verify_deployment.py     End-to-end deployment smoke test
-```
+| Layer | Technologies |
+| --- | --- |
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4, TanStack Query |
+| Backend | FastAPI, Python 3.11, SQLAlchemy 2, Pydantic, Uvicorn |
+| Database | PostgreSQL with `asyncpg` and Alembic migrations |
+| Blockchain | Stellar SDK, Stellar Mainnet, Horizon API, Freighter wallet |
+| Execution | OpenRouter, Playwright, Docker, noVNC |
+| Infrastructure | Docker Compose, Nginx, AWS EC2, Vercel |
 
-## Architecture
+## Repository Structure
 
 ```text
-User
-  -> Next.js frontend
-  -> FastAPI backend
-  -> Postgres database
-  -> Execution provider
-       -> OpenRouter / browser / local Docker / sandbox worker
-  -> Evidence hash
-  -> Stellar Mainnet anchor
-  -> Public verification page
+AgentTrust/
+|-- backend/             FastAPI API, models, services, migrations, and tests
+|-- frontend/            Next.js application and Stellar wallet integration
+|-- sandbox-worker/      Isolated external-agent Docker execution service
+|-- external-agents/     Example agent implementations
+|-- deploy/              Production Compose and Nginx configuration
+|-- scripts/             Local development helpers
+|-- tests/               External-agent fixtures
+|-- DEPLOYMENT_STAGING.md
+|-- verify_deployment.py
+`-- README.md
 ```
 
-Production target:
+## Getting Started
 
-```text
-Vercel
-  -> Next.js frontend
+### Prerequisites
 
-AWS EC2
-  -> Nginx
-  -> FastAPI backend
-  -> sandbox-worker
-  -> host Docker daemon
-
-Neon / Postgres
-  -> application data
-
-Stellar Mainnet
-  -> execution proof anchoring
-```
-
-## Prerequisites
-
+- Python 3.11 or newer
 - Node.js and npm
-- Python 3.12 recommended
-- PostgreSQL-compatible database
-- Docker, required for external Docker agents and the sandbox worker
-- Stellar Mainnet account/keypair for production anchoring
-- Optional: Freighter browser wallet for frontend wallet connection
+- PostgreSQL
+- Docker, when running external agents or desktop sandboxes
+- A funded Stellar Mainnet keypair, when submitting real on-chain proofs
 
-## Local Setup
+### 1. Configure and run the backend
 
-### 1. Backend
-
-```powershell
+```bash
 cd backend
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
 ```
 
-Create `backend/.env`:
+Activate the virtual environment:
 
-```text
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# macOS or Linux
+source .venv/bin/activate
+```
+
+Install dependencies and create the private environment file:
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
+
+At minimum, review these values in `backend/.env`:
+
+```dotenv
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/agenttrust
-JWT_SECRET=change-this-secret-key
+JWT_SECRET=replace-with-a-long-random-secret
+
+STELLAR_SECRET_KEY=your-funded-mainnet-secret-key
+STELLAR_PUBLIC_KEY=GCPICED67VZ2VUESHTKMXZMWJJVSV4ZFULILSUQJS2GL77KBRHILDIN3
+STELLAR_NETWORK=mainnet
+STELLAR_HORIZON_URL=https://horizon.stellar.org
+
+OPENROUTER_API_KEY=
+SANDBOX_WORKER_URL=
 ENVIRONMENT=development
 DEBUG=true
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-
-STELLAR_SECRET_KEY=
-STELLAR_PUBLIC_KEY=
-STELLAR_NETWORK=mainnet
-STELLAR_HORIZON_URL=https://horizon.stellar.org
-STELLAR_MAX_BASE_FEE=10000
-
-OPENROUTER_API_KEY=
-SANDBOX_WORKER_URL=http://localhost:8001
 ```
 
-Run the backend:
+`STELLAR_SECRET_KEY` must correspond to `STELLAR_PUBLIC_KEY`. Keep it empty during local development if you do not want to submit real Mainnet transactions; runs will remain pending instead of receiving an on-chain receipt.
 
-```powershell
-cd backend
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+Start the API:
+
+```bash
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Health check:
+### 2. Configure and run the frontend
 
-```powershell
-curl http://127.0.0.1:8000/health
-```
+Open a second terminal:
 
-API docs are available at:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-### 2. Frontend
-
-```powershell
+```bash
 cd frontend
 npm install
-npm run dev
 ```
 
-Open:
+Create `frontend/.env.local`:
 
-```text
-http://localhost:3000
-```
-
-For local development, set `frontend/.env.local` if needed:
-
-```text
+```dotenv
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api
 NEXT_PUBLIC_STELLAR_NETWORK=mainnet
 ```
 
-### 3. Single-Command Local App
+Start the frontend:
 
-After backend dependencies and frontend dependencies are installed, this helper starts both services:
-
-```powershell
-node scripts/dev-single-server.mjs
+```bash
+npm run dev
 ```
 
-It starts:
+Open [http://localhost:3000](http://localhost:3000). API documentation is available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
-- Backend on `http://127.0.0.1:8000`
-- Frontend on `http://127.0.0.1:3000`
+### 3. Run the optional sandbox worker
 
-## Sandbox Worker
+The worker is required for remote or decoupled `external_docker` execution. Docker must be running.
 
-The sandbox worker runs external Docker agents outside the main backend process.
-
-```powershell
+```bash
 cd sandbox-worker
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+source .venv/bin/activate
 pip install -r requirements.txt
-python -m uvicorn worker:app --host 0.0.0.0 --port 9000
+uvicorn worker:app --host 0.0.0.0 --port 9000
 ```
 
-Health check:
+On Windows, activate the environment with `.\.venv\Scripts\Activate.ps1`.
 
-```powershell
-curl http://127.0.0.1:9000/health
-```
+Then set this value in `backend/.env` and restart the backend:
 
-Point the backend to the worker:
-
-```text
+```dotenv
 SANDBOX_WORKER_URL=http://127.0.0.1:9000
 ```
 
-When this value is set, `external_docker` executions are forwarded to the worker. When it is unset, AgentTrust falls back to its local Docker runner.
+Leave `SANDBOX_WORKER_URL` empty to use the backend's local Docker runner.
 
-See `sandbox-worker/README.md` and `sandbox-worker/agent_contract.md` for the full worker contract.
+### Single-command development launcher
+
+After installing the backend and frontend dependencies, start both applications from the repository root:
+
+```bash
+node scripts/dev-single-server.mjs
+```
 
 ## External Agent Contract
 
-External agents can be any Docker image. For richer evidence, they should follow the AgentTrust contract:
+An external agent may be any Docker image. For complete structured evidence, it should:
 
-- Read task input from `$AGENTTRUST_INPUT`.
-- Write final structured output to `$AGENTTRUST_OUTPUT`.
-- Write action steps to `$AGENTTRUST_ACTION_LOG`.
+- Read the task from the path stored in `AGENTTRUST_INPUT`.
+- Write its final JSON result to the path stored in `AGENTTRUST_OUTPUT`.
+- Write its JSON action history to the path stored in `AGENTTRUST_ACTION_LOG`.
 
-If an image does not write these files, the worker still captures stdout, stderr, exit code, and execution time, then synthesizes fallback output.
+If those files are not created, AgentTrust still records stdout, stderr, exit code, and execution time. See [sandbox-worker/agent_contract.md](sandbox-worker/agent_contract.md) for the complete contract.
 
-## Main API Routes
+## API Overview
 
-All application routes are mounted under `/api`.
+All application endpoints are under `/api`.
 
-- `POST /api/register` - create a user account
-- `POST /api/login` - authenticate and receive a JWT
-- `GET /api/me` - fetch the current user
-- `PUT /api/me/wallet` - connect a Stellar wallet
-- `DELETE /api/me/wallet` - disconnect a Stellar wallet
-- `GET /api/agents` - list and search public agents
-- `POST /api/agents` - register an agent, developer accounts only
-- `GET /api/agents/{agent_id}` - get agent details
-- `PUT /api/agents/{agent_id}` - update an owned agent
-- `DELETE /api/agents/{agent_id}` - deactivate an owned agent
-- `POST /api/execute` - execute an agent
-- `GET /api/runs` - list authenticated user runs
-- `GET /api/runs/{run_id}` - get a run
-- `GET /api/runs/{run_id}/stream` - stream execution snapshots
-- `GET /api/v1/runs/{run_id}/logs` - fetch captured logs
-- `GET /api/trust/{agent_id}` - fetch trust score
-- `GET /api/verify/{run_id}` - publicly verify a run
-- `GET /api/sandbox/health` - inspect sandbox routing and worker health
-- `GET /api/v1/desktop/{run_id}/status` - desktop execution status
-- `GET /api/v1/desktop/{run_id}/connect-info` - desktop connection details
-- `POST /api/v1/desktop/{run_id}/heartbeat` - keep a desktop session alive
-- `POST /api/v1/desktop/{run_id}/stop` - stop a desktop session
+| Area | Main endpoints |
+| --- | --- |
+| Authentication | `POST /register`, `POST /login`, `GET /me` |
+| Wallet | `PUT /me/wallet`, `DELETE /me/wallet` |
+| Agents | `GET /agents`, `POST /agents`, `GET /agents/{agent_id}` |
+| Executions | `POST /execute`, `GET /runs`, `GET /runs/{run_id}` |
+| Live evidence | `GET /runs/{run_id}/stream`, `GET /v1/runs/{run_id}/logs` |
+| Trust | `GET /trust/{agent_id}` |
+| Verification | `GET /verify/{run_id}` |
+| Sandbox | `GET /sandbox/health` |
+| Desktop | `/v1/desktop/{run_id}/status`, `/connect-info`, `/heartbeat`, `/stop` |
+
+## Verification Model
+
+The evidence hash represents the normalized execution record. AgentTrust stores that hash in a Stellar `HashMemo`, submits the signed transaction through Horizon, and persists the resulting transaction hash and ledger metadata.
+
+The public verification endpoint recomputes the evidence fingerprint and checks that:
+
+- The stored run evidence has not changed.
+- The Stellar transaction exists on the expected network.
+- The transaction memo matches the expected evidence hash.
 
 ## Tests and Checks
 
-Backend tests:
+Run backend tests:
 
-```powershell
+```bash
 cd backend
-.\.venv\Scripts\python.exe -m pytest
+python -m pytest
 ```
 
-Frontend checks:
+Run frontend quality checks:
 
-```powershell
+```bash
 cd frontend
 npm run lint
 npm run type-check
 npm run build
 ```
 
-Deployment smoke test:
-
-```powershell
-$env:AGENTTRUST_FRONTEND_URL="https://your-vercel-app.vercel.app"
-$env:AGENTTRUST_BACKEND_URL="http://YOUR_EC2_PUBLIC_IP"
-$env:AGENTTRUST_ACCESS_TOKEN="your-jwt-token"
-$env:STELLAR_NETWORK="mainnet"
-backend\.venv\Scripts\python.exe verify_deployment.py
-```
-
-The smoke test verifies frontend visibility, backend health, cloud sandbox routing, Docker execution, telemetry persistence, execution hashing, Stellar transaction creation, and public verification output.
-
 ## Production Deployment
 
-Use the production deployment guide in `DEPLOYMENT_STAGING.md`.
+The recommended production layout is:
 
-Recommended production split:
+- Vercel for the Next.js frontend
+- AWS EC2 for Nginx, FastAPI, the sandbox worker, and Docker
+- PostgreSQL through Neon, Supabase, or another compatible provider
+- Stellar Mainnet for execution-proof anchoring
 
-- Deploy the frontend from `frontend/` to Vercel.
-- Deploy the backend, sandbox worker, and Nginx on EC2 with `deploy/compose.production.yml`.
-- Use Neon or another PostgreSQL provider for `DATABASE_URL`.
-- Keep Docker sandbox execution on EC2 or another host with access to a real Docker daemon.
+See [DEPLOYMENT_STAGING.md](DEPLOYMENT_STAGING.md) for the complete deployment and smoke-test procedure.
 
-Start the production backend stack on EC2:
+## Security
 
-```bash
-docker compose -f deploy/compose.production.yml up -d --build
-```
+- Never commit `backend/.env`, `frontend/.env.local`, or `deploy/.env.production`.
+- Never expose Stellar secret keys, JWT secrets, database credentials, SSH keys, or `.pem` files.
+- Use a dedicated, minimally funded Stellar account for proof anchoring.
+- Review Docker images before allowing them to execute.
+- Use HTTPS and narrowly scoped CORS origins in production.
 
-Production health checks:
-
-```bash
-curl http://YOUR_EC2_PUBLIC_IP/health
-curl http://YOUR_EC2_PUBLIC_IP/api/sandbox/health
-curl http://YOUR_EC2_PUBLIC_IP/sandbox/health
-```
-
-Do not deploy `sandbox-worker` to Vercel, Render, Railway, or serverless infrastructure.
-
-## Security Notes
-
-Never commit:
-
-- `backend/.env`
-- `frontend/.env.local`
-- `deploy/.env.production`
-- SSH keys
-- `.pem` files
-- Stellar secret keys
-- JWT secrets
-
-Production startup validates Stellar Mainnet configuration and fails if the keypair, network, Horizon URL, database URL, or JWT secret are unsafe.
-
-## Generated Architecture Materials
-
-This repository includes Canva-editable architecture deck assets:
-
-- `AgentTrust_Architecture_Overview_Canva_Editable.pptx`
-- `AgentTrust_Architecture_Overview_6_Slides_Canva_Editable.pptx`
-- Rendered slide PNGs in matching folders
-- Deck generation source in `codex_ppt_build/`
-
-These files are documentation/presentation assets and are not required to run the app.
