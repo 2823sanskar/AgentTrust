@@ -7,8 +7,14 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class RunCreate(BaseModel):
+    task: str = Field(..., min_length=1, max_length=10000)
+    agent_id: Optional[uuid.UUID] = None
+    is_interactive: bool = True
+
+
 class ExecuteRequest(BaseModel):
-    agent_id: uuid.UUID
+    agent_id: Optional[uuid.UUID] = None
     task: str = Field(..., min_length=1, max_length=10000)
     is_interactive: bool = False
     vnc_port: Optional[int] = Field(default=None, ge=1024, le=65535)
@@ -17,7 +23,7 @@ class ExecuteRequest(BaseModel):
 
 class RunResponse(BaseModel):
     id: uuid.UUID
-    agent_id: uuid.UUID
+    agent_id: Optional[uuid.UUID] = None
     user_id: uuid.UUID
     task: str
     response: Optional[str]

@@ -40,6 +40,27 @@ from app.services.stellar_service import (
     anchor_run_to_stellar,
     verify_run_receipt,
 )
+from app.services.desktop_orchestrator import (
+    DesktopOrchestrationError,
+    refresh_desktop_container_logs,
+    spawn_desktop_container,
+    start_desktop_log_tail,
+    stop_desktop_container,
+    wait_for_desktop_readiness,
+)
+from app.services.port_manager import (
+    NoAvailablePortError,
+    allocate_desktop_ports,
+    generate_desktop_session_token,
+    release_desktop_ports,
+)
+from app.services.sandbox import get_desktop_container_config
+from app.services.trust_service import recalculate_trust_score
+from app.services.stellar_service import (
+    TERMINAL_RUN_STATUSES,
+    anchor_run_to_stellar,
+    verify_run_receipt,
+)
 from app.config import settings
 from app.utils.hashing import compute_execution_hash
 
@@ -47,9 +68,9 @@ logger = logging.getLogger(__name__)
 
 async def execute_agent(
     db: AsyncSession,
-    agent_id: uuid.UUID,
     user_id: uuid.UUID,
     task: str,
+    agent_id: uuid.UUID | None = None,
     *,
     is_interactive: bool = False,
     vnc_port: int | None = None,
@@ -57,25 +78,26 @@ async def execute_agent(
 ) -> RunResponse:
     """
     Full execution pipeline (PRD §7.1):
-    1. Load agent config
+    1. Load agent config (if agent_id provided)
     2. Generate Run ID
-    3. Call AI provider
+    3. Call AI provider / desktop sandbox
     4. Record execution time
     5. Determine status
     6. Build execution record
     7. Compute SHA-256 hash
     8. Submit hash to Stellar
     9. Store run with hash + tx ref
-    10. Recalculate trust score
+    10. Recalculate trust score (if agent exists)
     11. Return complete run record
     """
-    # 1. Load agent
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
-    agent = result.scalar_one_or_none()
-    if not agent:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
-    if agent.status != "active":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Agent is inactive")
+    agent = None
+    if agent_id:
+        result = await db.execute(select(Agent).where(Agent.id == agent_id))
+        agent = result.scalar_one_or_none()
+        if not agent:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+        if agent.status != "active":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Agent is inactive")
 
     user_result = await db.execute(select(User).where(User.id == user_id))
     user = user_result.scalar_one_or_none()
@@ -94,8 +116,6 @@ async def execute_agent(
 
     # 2. Generate Run ID
     run_id = uuid.uuid4()
-    created_at = datetime.now(timezone.utc)
-
     # 3-5. Execute AI provider and measure time
     start_time = time.time()
     action_log = None
@@ -231,6 +251,51 @@ async def get_run(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
     if current_user_id and run.user_id != current_user_id:
         raise HTTPException(
+        anchored_at=None,
+        anchor_status="pending_anchor",
+        user_stellar_wallet_address=(
+            user.stellar_wallet_address
+            if user and user.stellar_wallet_network == settings.STELLAR_NETWORK
+            else None
+        ),
+        user_stellar_wallet_network=(
+            user.stellar_wallet_network
+            if user and user.stellar_wallet_network == settings.STELLAR_NETWORK
+            else None
+        ),
+    )
+    db.add(run)
+    await db.flush()
+
+    try:
+        run = await anchor_run_to_stellar(db, run.id)
+        if run.anchor_status != "anchored":
+            logger.warning("Run %s remains pending Stellar anchoring", run.id)
+    except Exception as e:
+        logger.error(f"Stellar anchoring failed for run {run_id}: {e}")
+
+    # 9. Recalculate trust score. Never let scoring failure hide a stored run.
+    try:
+        await recalculate_trust_score(db, agent_id)
+    except Exception as e:
+        logger.error(f"Trust recalculation failed for run {run_id}: {e}")
+
+    # 10. Return complete run
+    await db.refresh(run)
+    return _run_to_response(run)
+
+
+async def get_run(
+    db: AsyncSession,
+    run_id: uuid.UUID,
+    current_user_id: uuid.UUID | None = None,
+) -> RunResponse:
+    result = await db.execute(select(Run).where(Run.id == run_id))
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    if current_user_id and run.user_id != current_user_id:
+        raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot view another user's execution run",
         )
@@ -239,8 +304,8 @@ async def get_run(
 
 async def _start_interactive_desktop_run(
     db: AsyncSession,
-    agent: Agent,
-    agent_id: uuid.UUID,
+    agent: Agent | None,
+    agent_id: uuid.UUID | None,
     user_id: uuid.UUID,
     task: str,
     *,
@@ -279,7 +344,7 @@ async def _start_interactive_desktop_run(
                 "action": "Interactive desktop session requested",
                 "target": desktop_config.image,
                 "status": "pending",
-                "note": f"agent={agent.name}",
+                "note": f"agent={agent.name if agent else 'remote_desktop'}",
             }
         ],
         status="pending",
