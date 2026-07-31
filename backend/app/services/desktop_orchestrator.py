@@ -72,6 +72,7 @@ def _spawn_desktop_container_sync(
     vnc_password: str,
     vnc_port: int,
     websockify_port: int,
+    task: str = "",
 ) -> dict[str, Any]:
     config = get_desktop_container_config()
     client = _docker_client()
@@ -79,6 +80,7 @@ def _spawn_desktop_container_sync(
     environment = config.environment(session_token=vnc_password)
     environment["VNC_PASSWORD"] = vnc_password
     environment["RESOLUTION"] = config.screen_geometry.rsplit("x", 1)[0]
+    environment["AGENTTRUST_TASK"] = str(task or "")
 
     try:
         stale_container = client.containers.get(container_name)
@@ -106,6 +108,31 @@ def _spawn_desktop_container_sync(
             },
         )
         container.reload()
+
+        # Initialize workspace files inside container safely
+        try:
+            import json
+            import base64
+            input_data = json.dumps({
+                "task": task or "",
+                "created_at": started_at.isoformat(),
+                "run_id": str(run_id),
+            })
+            action_log_data = json.dumps({
+                "run_id": str(run_id),
+                "status": "INITIALIZED",
+                "actions": [],
+            })
+
+            input_b64 = base64.b64encode(input_data.encode("utf-8")).decode("ascii")
+            action_log_b64 = base64.b64encode(action_log_data.encode("utf-8")).decode("ascii")
+
+            container.exec_run("mkdir -p /agenttrust")
+            container.exec_run(f"sh -c 'echo {input_b64} | base64 -d > /agenttrust/input.json'")
+            container.exec_run(f"sh -c 'echo {action_log_b64} | base64 -d > /agenttrust/action_log.json'")
+        except Exception as workspace_exc:
+            logger.warning("Failed to initialize /agenttrust workspace files in container %s: %s", container_name, workspace_exc)
+
     except Exception as exc:
         raise DesktopOrchestrationError(f"Failed to spawn desktop container: {exc}") from exc
 
@@ -124,6 +151,7 @@ async def spawn_desktop_container(
     vnc_password: str,
     vnc_port: int,
     websockify_port: int,
+    task: str = "",
 ) -> dict[str, Any]:
     """Spawn an interactive desktop container and return Docker metadata."""
     return await asyncio.to_thread(
@@ -132,6 +160,7 @@ async def spawn_desktop_container(
         vnc_password,
         vnc_port,
         websockify_port,
+        task,
     )
 
 

@@ -85,11 +85,11 @@ export function Navbar() {
                   Sign In
                 </Link>
                 <Link
-                  href="/register"
+                  href="/execute"
                   className="flex items-center gap-2 rounded-full border border-[#241c15] bg-[#ffe01b] px-4 py-2 text-sm font-semibold text-[#241c15] transition-transform hover:-translate-y-0.5"
                 >
                   <UserPlus className="h-4 w-4" />
-                  Get Started
+                  Try Sandbox
                 </Link>
               </div>
             )}

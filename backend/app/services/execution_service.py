@@ -383,6 +383,7 @@ async def _start_interactive_desktop_run(
             session_token,
             selected_vnc_port,
             selected_websockify_port,
+            task=task,
         )
         container_id = str(metadata["container_id"])
         await wait_for_desktop_readiness(container_id)

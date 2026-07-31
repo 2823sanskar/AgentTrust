@@ -83,6 +83,7 @@ async def stream_run(
             pass
 
     async def events():
+        header_sent = False
         for _ in range(60):
             try:
                 run = await execution_service.get_run(db, run_id, current_user_id=current_user_id)
@@ -111,10 +112,34 @@ async def stream_run(
                 await asyncio.sleep(1)
                 continue
 
+            input_header = f"[INPUT]: {run.task}"
+            if not header_sent:
+                yield f"data: {json.dumps({'type': 'log', 'line': input_header, 'input_header': input_header})}\n\n"
+                header_sent = True
+
             payload = run.model_dump(mode="json")
+            formatted_logs = [input_header]
+            if run.action_log:
+                for idx, entry in enumerate(run.action_log, start=1):
+                    action_name = entry.get("action", "Action")
+                    status_str = entry.get("status", "pending")
+                    formatted_logs.append(f"[STEP {idx}]: {action_name} ({status_str})")
+            if run.container_stdout:
+                formatted_logs.append(f"[EXEC]: {run.container_stdout.strip()}")
+
+            if run.status in {"completed", "success"}:
+                formatted_logs.append("[STATUS]: COMPLETED")
+            elif run.status in {"failed", "error"}:
+                formatted_logs.append(f"[STATUS]: FAILED ({run.response or 'Execution error'})")
+
+            payload["input_header"] = input_header
+            payload["formatted_logs"] = formatted_logs
+
             event_type = "complete" if run.status not in {"pending", "blocked"} else "snapshot"
-            yield f"data: {json.dumps({'type': event_type, 'run': payload})}\n\n"
+            yield f"data: {json.dumps({'type': event_type, 'input_header': input_header, 'run': payload})}\n\n"
             if event_type == "complete":
+                status_header = "[STATUS]: COMPLETED" if run.status in {"completed", "success"} else "[STATUS]: FAILED"
+                yield f"data: {json.dumps({'type': 'status', 'status_header': status_header, 'status': run.status})}\n\n"
                 return
             await asyncio.sleep(1)
         yield f"data: {json.dumps({'type': 'timeout', 'message': 'Execution stream timed out.'})}\n\n"
@@ -138,13 +163,29 @@ async def get_run_logs(
 ):
     """Fetch captured stdout/stderr and action steps for an execution run."""
     run = await execution_service.get_run(db, run_id, current_user.id)
+    input_header = f"[INPUT]: {run.task}"
+    formatted_logs = [input_header]
+    if run.action_log:
+        for idx, entry in enumerate(run.action_log, start=1):
+            action = entry.get("action", "Action")
+            st = entry.get("status", "pending")
+            formatted_logs.append(f"[STEP {idx}]: {action} ({st})")
+    if run.container_stdout:
+        formatted_logs.append(f"[EXEC]: {run.container_stdout.strip()}")
+    if run.status in {"completed", "success"}:
+        formatted_logs.append("[STATUS]: COMPLETED")
+    elif run.status in {"failed", "error"}:
+        formatted_logs.append(f"[STATUS]: FAILED ({run.response or 'Execution error'})")
+
     return {
         "run_id": str(run.id),
         "status": run.status,
         "desktop_status": run.desktop_status,
+        "input_header": input_header,
         "stdout": run.container_stdout or "",
         "stderr": run.container_stderr or "",
         "action_log": run.action_log or [],
+        "formatted_logs": formatted_logs,
     }
 
 

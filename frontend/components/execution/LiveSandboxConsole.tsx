@@ -12,6 +12,12 @@ import {
   Terminal,
   Wifi,
   WifiOff,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  PlayCircle,
+  ListOrdered,
+  Code2,
 } from "lucide-react";
 import { ActionLogEntry, Run } from "@/types";
 import type { DesktopViewerProps } from "@/components/sandbox/DesktopViewer";
@@ -29,11 +35,13 @@ const DesktopViewer = dynamic<DesktopViewerProps>(
 );
 
 type ConsoleTab = "terminal" | "display";
+type LogViewMode = "timeline" | "raw";
 type StreamState = "idle" | "connecting" | "connected" | "retrying" | "closed" | "failed";
 type FrameState = "standby" | "loaded" | "retrying" | "offline";
 
 interface LiveSandboxConsoleProps {
   runId?: string | null;
+  task?: string | null;
   streamUrl?: string | null;
   actionLog?: ActionLogEntry[] | null;
   stdout?: string | null;
@@ -82,6 +90,7 @@ function normalizeRemoteUrl(input?: string | null): string {
 }
 
 function buildLogLines({
+  task,
   actionLog,
   stdout,
   stderr,
@@ -97,8 +106,12 @@ function buildLogLines({
   const lines = [
     "[SYSTEM] AgentTrust sandbox console initialized",
     `[ROUTE] ${routingMode === "cloud_sandbox" ? "AWS EC2 sandbox worker" : "local engine or fallback"}`,
-    `[MODE] ${agentProvider || "agent"} execution workspace`,
+    `[MODE] ${agentProvider || "external_docker"} execution workspace`,
   ];
+
+  if (task) {
+    lines.push(`[INPUT]: ${task}`);
+  }
 
   if (isInteractive && runId && desktopStatus === "pending") {
     lines.push("[RUN] interactive desktop starting...");
@@ -148,6 +161,7 @@ function buildLogLines({
 
 function linesFromRun(run: Run): string[] {
   return buildLogLines({
+    task: run.task,
     actionLog: run.action_log,
     stdout: run.container_stdout,
     stderr: run.container_stderr,
@@ -179,6 +193,7 @@ function resolveStreamUrl(runId?: string | null, streamUrl?: string | null): str
 
 export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
   const [activeTab, setActiveTab] = useState<ConsoleTab>("terminal");
+  const [logViewMode, setLogViewMode] = useState<LogViewMode>("timeline");
   const [autoScroll, setAutoScroll] = useState(true);
   const [copied, setCopied] = useState(false);
   const [clearedSignature, setClearedSignature] = useState("");
@@ -230,6 +245,59 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
     return streamLines.length ? streamLines : baseLogLines;
   }, [baseLogLines, clearedSignature, streamLines, telemetrySignature]);
 
+  // Extract pinned [INPUT]: User Query
+  const pinnedUserQuery = useMemo(() => {
+    if (props.task) return props.task;
+    const inputLine = logLines.find((l) => l.startsWith("[INPUT]:"));
+    if (inputLine) return inputLine.replace("[INPUT]:", "").trim();
+    return null;
+  }, [props.task, logLines]);
+
+  // Extract parsed step-card timeline
+  const parsedStepCards = useMemo(() => {
+    const cards: { step: number; action: string; status: string; target?: string; note?: string }[] = [];
+    
+    // First include props.actionLog
+    if (props.actionLog && props.actionLog.length > 0) {
+      props.actionLog.forEach((entry) => {
+        cards.push({
+          step: entry.step,
+          action: entry.action,
+          status: entry.status || "completed",
+          target: entry.target,
+          note: entry.note,
+        });
+      });
+    }
+
+    // Parse step lines from stream lines if missing
+    if (cards.length === 0) {
+      logLines.forEach((line) => {
+        const match = line.match(/^\[STEP\s+(\d+)\]\:\s*(.*?)(?:\s*::\s*(.*?))?(?:\s*::\s*(.*))?$/i);
+        if (match) {
+          cards.push({
+            step: parseInt(match[1], 10),
+            action: match[2] || "Execution step",
+            status: match[3] || "running",
+            target: match[4],
+          });
+        }
+      });
+    }
+
+    if (cards.length === 0 && props.runId) {
+      cards.push({
+        step: 1,
+        action: "Interactive Desktop Container Initialized",
+        status: props.desktopStatus === "running" ? "running" : props.status || "pending",
+        target: "remote_desktop",
+        note: "Container active; task input written to /agenttrust/input.json",
+      });
+    }
+
+    return cards;
+  }, [props.actionLog, props.runId, props.desktopStatus, props.status, logLines]);
+
   const visibleLogLines = useMemo(() => {
     if (logLines.length <= MAX_RENDERED_LINES) return logLines;
     return [
@@ -246,7 +314,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
       }
     });
     return () => cancelAnimationFrame(frame);
-  }, [autoScroll, visibleLogLines]);
+  }, [autoScroll, visibleLogLines, parsedStepCards]);
 
   useEffect(() => {
     if (!desktopIsLive || !props.runId) return;
@@ -292,8 +360,15 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
       source.onmessage = (event) => {
         if (closed || !event.data) return;
         try {
-          const data = JSON.parse(event.data) as { type?: string; run?: Run; lines?: string[]; message?: string };
-          if (data.type === "complete") {
+          const data = JSON.parse(event.data) as {
+            type?: string;
+            run?: Run;
+            lines?: string[];
+            line?: string;
+            message?: string;
+            status_header?: string;
+          };
+          if (data.type === "complete" || data.type === "status") {
             if (data.run) setStreamLines(linesFromRun(data.run));
             setStreamState("closed");
             closeStream();
@@ -302,6 +377,9 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
           if (data.type === "snapshot" && data.run) {
             setStreamLines(linesFromRun(data.run));
             return;
+          }
+          if (data.line) {
+            setStreamLines((current) => [...current, data.line || ""]);
           }
           if (Array.isArray(data.lines)) {
             const nextLines = data.lines;
@@ -385,18 +463,70 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
     failed: "OFFLINE",
   }[effectiveStreamState];
 
+  // Console Status Badge
+  const statusBadgeInfo = useMemo(() => {
+    const s = (props.status || props.desktopStatus || "idle").toLowerCase();
+    if (s === "success" || s === "completed") {
+      return { label: "COMPLETED", color: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300", icon: CheckCircle2 };
+    }
+    if (s === "failed" || s === "error") {
+      return { label: "FAILED", color: "border-red-500/40 bg-red-500/10 text-red-300", icon: XCircle };
+    }
+    if (s === "running" || s === "pending") {
+      return { label: "RUNNING", color: "border-[#ffe01b]/40 bg-[#ffe01b]/10 text-[#ffe01b]", icon: PlayCircle };
+    }
+    return { label: "STANDBY", color: "border-zinc-700 bg-zinc-950 text-zinc-400", icon: Clock };
+  }, [props.status, props.desktopStatus]);
+
+  const StatusIcon = statusBadgeInfo.icon;
+
   const terminalPanel = (
     <section className="flex min-h-[240px] max-h-[280px] flex-col overflow-hidden border border-zinc-800 bg-zinc-900 lg:h-[640px] lg:max-h-none lg:min-h-[420px]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
-        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 font-mono text-[11px] uppercase text-cyan-200">
-          <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(103,232,249,0.9)]" />
-          TELEMETRY STREAM :: {streamBadge}
-        </div>
         <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 font-mono text-[11px] uppercase text-cyan-200">
+            <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(103,232,249,0.9)]" />
+            TELEMETRY STREAM :: {streamBadge}
+          </div>
+          <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] uppercase ${statusBadgeInfo.color}`}>
+            <StatusIcon className="h-3 w-3" />
+            {statusBadgeInfo.label}
+          </div>
+        </div>
+
+        {/* View Mode Toggle (Step Timeline vs Raw Logs) */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-950 p-0.5">
+            <button
+              type="button"
+              onClick={() => setLogViewMode("timeline")}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-mono rounded ${
+                logViewMode === "timeline"
+                  ? "bg-[#ffe01b] text-[#241c15] font-semibold"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              <ListOrdered className="h-3.5 w-3.5" />
+              Timeline
+            </button>
+            <button
+              type="button"
+              onClick={() => setLogViewMode("raw")}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-mono rounded ${
+                logViewMode === "raw"
+                  ? "bg-[#ffe01b] text-[#241c15] font-semibold"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              <Code2 className="h-3.5 w-3.5" />
+              Raw Logs
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => setAutoScroll((value) => !value)}
-            className={`inline-flex h-8 items-center gap-1 border px-3 font-mono text-[11px] uppercase transition-colors ${
+            className={`inline-flex h-8 items-center gap-1 border px-3 font-mono text-[11px] uppercase transition-colors rounded ${
               autoScroll
                 ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
                 : "border-zinc-700 bg-zinc-950 text-zinc-400"
@@ -409,7 +539,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
           <button
             type="button"
             onClick={copyLogs}
-            className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-950 text-zinc-300 transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
+            className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-950 text-zinc-300 rounded transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
             title="Copy clean terminal logs"
           >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Clipboard className="h-3.5 w-3.5" />}
@@ -417,7 +547,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
           <button
             type="button"
             onClick={downloadLogs}
-            className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-950 text-zinc-300 transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
+            className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-950 text-zinc-300 rounded transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
             title="Download terminal logs"
           >
             <Download className="h-3.5 w-3.5" />
@@ -425,26 +555,78 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
           <button
             type="button"
             onClick={() => setClearedSignature(telemetrySignature)}
-            className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-950 text-zinc-300 transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
+            className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-950 text-zinc-300 rounded transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
             title="Clear terminal screen"
           >
             <Eraser className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
+
       <div
         ref={logWindowRef}
         onScroll={handleLogScroll}
         className="min-h-0 flex-1 overflow-auto bg-zinc-950 p-4 font-mono text-xs leading-5 text-zinc-300"
       >
-        {visibleLogLines.map((line, index) => (
-          <div
-            key={`${index}-${line.slice(0, 32)}`}
-            className={line.startsWith("!") ? "whitespace-pre-wrap text-red-300" : "whitespace-pre-wrap"}
-          >
-            {line}
+        {logViewMode === "timeline" ? (
+          /* Step-Cards Action Timeline View */
+          <div className="space-y-3">
+            {parsedStepCards.map((card) => {
+              const cardStatus = (card.status || "pending").toLowerCase();
+              const isSuccess = cardStatus === "success" || cardStatus === "completed" || cardStatus === "ok";
+              const isFailed = cardStatus === "failed" || cardStatus === "error";
+
+              return (
+                <div
+                  key={`step-card-${card.step}`}
+                  className={`rounded-lg border p-3 font-mono transition-all ${
+                    isSuccess
+                      ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-200"
+                      : isFailed
+                      ? "border-red-500/30 bg-red-500/5 text-red-200"
+                      : "border-[#ffe01b]/30 bg-[#ffe01b]/5 text-[#ffe01b]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-bold text-zinc-300">
+                        STEP {formatStep(card.step)}
+                      </span>
+                      <span className="font-semibold text-white">{card.action}</span>
+                    </div>
+                    <span
+                      className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                        isSuccess
+                          ? "bg-emerald-500/20 text-emerald-300"
+                          : isFailed
+                          ? "bg-red-500/20 text-red-300"
+                          : "bg-[#ffe01b]/20 text-[#ffe01b]"
+                      }`}
+                    >
+                      {card.status}
+                    </span>
+                  </div>
+                  {card.target && (
+                    <div className="mt-1 text-[11px] text-zinc-400">Target: {card.target}</div>
+                  )}
+                  {card.note && (
+                    <div className="mt-1 text-[11px] italic text-zinc-400">{card.note}</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        ))}
+        ) : (
+          /* Raw Terminal Logs View */
+          visibleLogLines.map((line, index) => (
+            <div
+              key={`${index}-${line.slice(0, 32)}`}
+              className={line.startsWith("!") ? "whitespace-pre-wrap text-red-300" : "whitespace-pre-wrap"}
+            >
+              {line}
+            </div>
+          ))
+        )}
       </div>
     </section>
   );
@@ -454,10 +636,10 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-mono text-[11px] uppercase text-emerald-200">
           <Monitor className="h-3.5 w-3.5" />
-          REMOTE DISPLAY :: AWS EC2 SANDBOX
+          REMOTE DISPLAY :: INTERACTIVE DESKTOP VIEW
         </div>
         <span className="font-mono text-[11px] uppercase text-zinc-500">
-          {isCloudRoute ? "cloud route" : "fallback preview"}
+          {isCloudRoute ? "cloud route" : "local desktop sandbox"}
         </span>
       </div>
       <div className="relative min-h-0 flex-1 overflow-auto bg-black">
@@ -499,7 +681,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
             <iframe
               key={`${remoteDisplayUrl}-${frameRetryKey}`}
               src={remoteDisplayUrl}
-              title="AgentTrust remote EC2 sandbox display"
+              title="AgentTrust remote desktop display"
               sandbox="allow-scripts allow-same-origin"
               className="h-full min-h-[360px] w-full border-0 lg:min-h-full"
               onLoad={() => {
@@ -511,12 +693,12 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
         ) : (
           <div className="flex h-full min-h-[360px] items-center justify-center p-4">
             <div className="w-full max-w-xl border border-zinc-700 bg-zinc-950 p-4 font-mono text-xs leading-6 text-zinc-300 shadow-2xl shadow-black">
-              <div className="border-b border-zinc-800 pb-2 text-cyan-200">EC2 SANDBOX REMOTE DISPLAY</div>
+              <div className="border-b border-zinc-800 pb-2 text-cyan-200">DESKTOP REMOTE VIEW</div>
               <div className="pt-3">
-                <div>Status: [WAITING FOR DISPLAY SIGNAL]</div>
-                <div>Node: aws_ec2_worker_01</div>
+                <div>Status: [READY FOR EXECUTION]</div>
+                <div>Node: interactive_desktop_sandbox</div>
                 <div>Mode: Live VNC / Interactive Remote Desktop View</div>
-                <div>Provider: {props.agentProvider || "not selected"}</div>
+                <div>Provider: {props.agentProvider || "external_docker"}</div>
               </div>
             </div>
           </div>
@@ -528,8 +710,26 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
   return (
     <div
       ref={workspaceRef}
-      className="scroll-mt-24 overflow-hidden border border-zinc-800 bg-black p-3 text-white"
+      className="scroll-mt-24 overflow-hidden border border-zinc-800 bg-black p-4 text-white rounded-xl shadow-2xl"
     >
+      {/* Pinned User Query Banner */}
+      {pinnedUserQuery && (
+        <div className="mb-4 rounded-xl border border-[#ffe01b]/40 bg-[#ffe01b]/10 p-4 shadow-lg backdrop-blur-md">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider text-[#ffe01b]">
+              <span className="h-2 w-2 rounded-full bg-[#ffe01b] animate-ping" />
+              [INPUT]: User Query
+            </div>
+            <span className="font-mono text-[11px] uppercase text-zinc-400">
+              {props.runId ? `Run ID: ${props.runId.slice(0, 8)}...` : "Active"}
+            </span>
+          </div>
+          <p className="mt-2 text-sm font-semibold text-white leading-relaxed font-sans">
+            "{pinnedUserQuery}"
+          </p>
+        </div>
+      )}
+
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="font-mono text-xs uppercase text-zinc-500">Live execution workspace</p>
