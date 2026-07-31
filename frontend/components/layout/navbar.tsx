@@ -21,7 +21,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navLinks = [
-    { href: "/agents", label: "Explore Agents" },
+    { href: "/execute", label: "Interactive Console" },
     ...(isAuthenticated
       ? [
           { href: "/dashboard", label: "Dashboard" },

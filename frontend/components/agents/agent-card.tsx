@@ -42,7 +42,7 @@ export function AgentCard({ agent, index = 0 }: AgentCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.08 }}
     >
-      <Link href={`/agents/${agent.id}`} className="block group">
+      <Link href={`/execute?agent_id=${agent.id}`} className="block group">
         <div className="relative overflow-hidden rounded-[22px] border border-[#d9cfba] bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#241c15] hover:shadow-[5px_5px_0_#241c15]">
           {/* Provider badge */}
           <div className="flex items-center justify-between mb-4">

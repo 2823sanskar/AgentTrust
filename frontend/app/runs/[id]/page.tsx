@@ -77,7 +77,7 @@ export default function RunDetailPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div className="rounded-[24px] border border-[#d9cfba] bg-white shadow-sm p-4">
               <p className="text-xs text-[#6b6257] mb-1 flex items-center gap-1"><Bot className="h-3 w-3" /> Agent</p>
-              <Link href={`/agents/${run.agent_id}`} className="text-sm text-[#007c89] hover:text-[#004e56]">
+              <Link href={`/execute?agent_id=${run.agent_id}`} className="text-sm text-[#007c89] hover:text-[#004e56]">
                 {run.agent_name || run.agent_id.slice(0, 8)}
               </Link>
             </div>

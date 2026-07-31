@@ -47,6 +47,13 @@ export interface AgentListResponse {
   page_size: number;
 }
 
+export interface RunListResponse {
+  runs: Run[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export interface AgentCreate {
   name: string;
   description?: string;
@@ -63,6 +70,18 @@ export interface AgentCreate {
   category?: string;
 }
 
+export interface ActionLogEntry {
+  step: number;
+  action: string;
+  tool?: string;
+  target?: string;
+  note?: string;
+  input?: Record<string, unknown> | string;
+  output?: string;
+  timestamp?: string;
+  status?: string;
+}
+
 export interface Run {
   id: string;
   agent_id: string;
@@ -73,7 +92,7 @@ export interface Run {
   container_stdout: string | null;
   container_stderr: string | null;
   exit_code: number | null;
-  status: "success" | "failure" | "pending" | "blocked";
+  status: "success" | "failure" | "pending" | "blocked" | "running";
   execution_time: number | null;
   is_interactive: boolean;
   container_id: string | null;
@@ -93,7 +112,11 @@ export interface Run {
   user_name: string | null;
   user_stellar_wallet_address: string | null;
   user_stellar_wallet_network: string | null;
-  routing_mode: "cloud_sandbox" | "local_engine";
+  routing_mode?: "cloud_sandbox" | "local_engine" | string;
+  stream_url?: string | null;
+  stdout?: string | null;
+  stderr?: string | null;
+  remote_display_url?: string | null;
 }
 
 export interface DesktopSessionStatus {
@@ -121,50 +144,45 @@ export interface DesktopHeartbeatResponse {
 export interface DesktopStopResponse {
   status: string;
   desktop_status: string;
-  container_stopped: boolean;
   run?: Run;
-}
-
-export interface ActionLogEntry {
-  step: number;
-  action: string;
-  target: string;
-  status: "success" | "failure" | "pending" | "blocked";
-  note: string;
-}
-
-export interface RunListResponse {
-  runs: Run[];
-  total: number;
-  page: number;
-  page_size: number;
-}
-
-export interface TrustScore {
-  agent_id: string;
-  overall_score: number;
-  success_rate: number;
-  average_latency: number;
-  verified_runs: number;
-  total_runs: number;
-  updated_at: string | null;
 }
 
 export interface VerificationResult {
   run_id: string;
-  stored_hash: string | null;
-  computed_hash: string;
-  hashes_match: boolean;
-  stellar_transaction: string | null;
-  stellar_network: "mainnet" | "testnet" | string | null;
-  stellar_ledger_sequence: number | null;
-  anchored_at: string | null;
-  anchor_status: string | null;
-  verified: boolean;
-  tx_hash: string | null;
-  explorer_url: string | null;
-  timestamp: string | null;
-  stellar_verified: boolean;
   verification_status: "verified" | "tampered" | "unanchored";
-  run_details: Run;
+  stored_hash: string | null;
+  computed_hash: string | null;
+  hashes_match?: boolean;
+  stellar_verified?: boolean;
+  tx_hash?: string | null;
+  is_valid: boolean;
+  stellar_transaction: string | null;
+  stellar_network?: string | null;
+  stellar_ledger_sequence?: number | null;
+  timestamp?: string | null;
+  explorer_url?: string | null;
+  anchored_at?: string | null;
+  run_details: {
+    agent_id: string;
+    agent_name?: string | null;
+    user_name?: string | null;
+    user_stellar_wallet_address?: string | null;
+    user_stellar_wallet_network?: string | null;
+    task: string;
+    status: string;
+    execution_time?: number | null;
+    exit_code?: number | null;
+    stellar_network?: string | null;
+    created_at: string;
+  };
+}
+
+export interface TrustScore {
+  agent_id: string;
+  trust_score: number;
+  total_runs: number;
+  successful_runs: number;
+  failed_runs: number;
+  verified_runs: number;
+  reputation_grade: string;
 }

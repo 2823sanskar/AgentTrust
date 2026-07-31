@@ -125,8 +125,10 @@ function buildLogLines({
   }
 
   actionLog?.forEach((entry) => {
+    const statusStr = (entry.status || "OK").toUpperCase();
+    const targetStr = entry.target || "";
     lines.push(
-      `[STEP ${formatStep(entry.step)}] ${entry.action} :: ${entry.status.toUpperCase()} :: ${entry.target}`,
+      `[STEP ${formatStep(entry.step)}] ${entry.action} :: ${statusStr} :: ${targetStr}`,
     );
     if (entry.note) lines.push(`         ${entry.note}`);
   });
@@ -513,7 +515,7 @@ export function LiveSandboxConsole(props: LiveSandboxConsoleProps) {
               <div className="pt-3">
                 <div>Status: [WAITING FOR DISPLAY SIGNAL]</div>
                 <div>Node: aws_ec2_worker_01</div>
-                <div>Mode: Live VNC / Browser Agent Interactive View</div>
+                <div>Mode: Live VNC / Interactive Remote Desktop View</div>
                 <div>Provider: {props.agentProvider || "not selected"}</div>
               </div>
             </div>

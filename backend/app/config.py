@@ -36,14 +36,6 @@ class Settings(BaseSettings):
     STELLAR_HORIZON_URL: str = STELLAR_MAINNET_HORIZON_URL
     STELLAR_MAX_BASE_FEE: int = 10_000
 
-    # AI Provider
-    OPENROUTER_API_KEY: str = ""
-
-    # Browser Agent
-    BROWSER_AGENT_HEADLESS: bool = True
-    BROWSER_AGENT_ACTION_TIMEOUT_MS: int = 45000
-    BROWSER_AGENT_NAVIGATION_TIMEOUT_MS: int = 60000
-
     # Decoupled Sandbox Worker
     SANDBOX_WORKER_URL: Optional[str] = "http://localhost:8001"
 

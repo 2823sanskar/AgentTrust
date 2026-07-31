@@ -21,7 +21,7 @@ class Agent(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    provider: Mapped[str] = mapped_column(String(50), nullable=False)  # openrouter, browser, external_docker
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)  # external_docker
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
     agent_type: Mapped[str] = mapped_column(String(32), nullable=False, default="prebuilt")

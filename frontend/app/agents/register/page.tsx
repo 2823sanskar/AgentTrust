@@ -9,9 +9,7 @@ import { motion } from "framer-motion";
 import { Bot, Zap, ArrowRight, AlertCircle, Package, Terminal, Plus, Trash2 } from "lucide-react";
 
 const providers = [
-  { value: "openrouter", label: "OpenRouter (Free)", models: ["openrouter/free"] },
-  { value: "browser", label: "Browser Agent", models: ["browser-demo"] },
-  { value: "external_docker", label: "External Docker", models: ["docker-contract-v1"] },
+  { value: "external_docker", label: "External Docker Sandbox Agent", models: ["docker-contract-v1"] },
 ];
 
 const emptyDockerCommands = new Set([
@@ -43,8 +41,8 @@ export default function RegisterAgentPage() {
   const [description, setDescription] = useState("");
   const [registrationMode, setRegistrationMode] = useState<"prebuilt" | "custom">("prebuilt");
   const [executionType, setExecutionType] = useState<"custom_docker" | "custom_script">("custom_docker");
-  const [provider, setProvider] = useState("openrouter");
-  const [model, setModel] = useState("openrouter/free");
+  const [provider, setProvider] = useState("external_docker");
+  const [model, setModel] = useState("docker-contract-v1");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [dockerImage, setDockerImage] = useState("clawbot-demo:latest");
   const [dockerCommand, setDockerCommand] = useState("");

@@ -17,8 +17,6 @@ from app.models.run import Run
 from app.models.agent import Agent
 from app.models.user import User
 from app.schemas.run import RunResponse, RunListResponse, VerificationResponse
-from app.services.ai_provider import execute_ai_provider
-from app.services.browser_agent import BrowserAgentExecutionError, execute_browser_agent
 from app.services.docker_sandbox import execute_docker_agent
 from app.services.vm_sandbox import execute_vm_sandbox_agent
 from app.services.desktop_orchestrator import (
@@ -46,12 +44,6 @@ from app.config import settings
 from app.utils.hashing import compute_execution_hash
 
 logger = logging.getLogger(__name__)
-
-# Maximum total seconds allowed for a browser agent run (3 minutes)
-BROWSER_AGENT_TOTAL_TIMEOUT = 180
-# Maximum total seconds allowed for an AI provider call (1 minute)
-AI_PROVIDER_TIMEOUT = 60
-
 
 async def execute_agent(
     db: AsyncSession,
@@ -112,91 +104,50 @@ async def execute_agent(
     exit_code = None
     execution_time_override = None
     try:
-        if agent.provider == "external_docker":
-            if settings.SANDBOX_WORKER_URL:
-                docker_result = await execute_vm_sandbox_agent(
-                    settings.SANDBOX_WORKER_URL,
-                    agent,
-                    run_id,
-                    task,
-                )
-            else:
-                docker_result = await execute_docker_agent(agent, run_id, task)
-            response_text = docker_result.final_output
-            action_log = docker_result.action_log
-            container_stdout = docker_result.stdout
-            container_stderr = docker_result.stderr
-            exit_code = docker_result.exit_code
-            execution_status = docker_result.status
-            execution_time_override = docker_result.execution_time
-        elif agent.provider == "browser":
-            response_text, action_log = await asyncio.wait_for(
-                execute_browser_agent(task),
-                timeout=BROWSER_AGENT_TOTAL_TIMEOUT,
+        if agent.provider != "external_docker":
+            raise ValueError("Only external Docker sandbox agents are supported")
+
+        if settings.SANDBOX_WORKER_URL:
+            docker_result = await execute_vm_sandbox_agent(
+                settings.SANDBOX_WORKER_URL,
+                agent,
+                run_id,
             )
-            execution_status = "success"
         else:
-            response_text = await asyncio.wait_for(
-                execute_ai_provider(
-                    provider=agent.provider,
-                    model=agent.model,
-                    system_prompt=agent.system_prompt,
-                    task=task,
-                ),
-                timeout=AI_PROVIDER_TIMEOUT,
-            )
-            execution_status = "success"
+            docker_result = await execute_docker_agent(agent, run_id, task)
+        response_text = docker_result.final_output
+        action_log = docker_result.action_log
+        container_stdout = docker_result.stdout
+        container_stderr = docker_result.stderr
+        exit_code = docker_result.exit_code
+        execution_status = docker_result.status
+        execution_time_override = docker_result.execution_time
     except asyncio.TimeoutError:
-        timeout_sec = (
-            BROWSER_AGENT_TOTAL_TIMEOUT
-            if agent.provider == "browser"
-            else AI_PROVIDER_TIMEOUT
-        )
-        msg = f"Execution timed out after {timeout_sec}s"
+        msg = "Execution timed out"
         logger.error(f"{msg} for run {run_id}")
-        if agent.provider == "browser":
-            response_text = (
-                "Browser run recorded with partial results.\n\n"
-                f"The browser agent reached the {timeout_sec}s safety limit before finishing. "
-                "The run is stored for audit instead of failing the execution."
-            )
-            action_log = [
-                {
-                    "step": 1,
-                    "action": "Browser safety timeout",
-                    "target": agent.provider,
-                    "status": "blocked",
-                    "note": msg,
-                }
-            ]
-            execution_status = "success"
-        else:
-            response_text = msg
-            action_log = [
-                {
-                    "step": 1,
-                    "action": "Execution timed out",
-                    "target": agent.provider,
-                    "status": "failure",
-                    "note": msg,
-                }
-            ]
-            execution_status = "failure"
+        response_text = msg
+        action_log = [
+            {
+                "step": 1,
+                "action": "Execution timed out",
+                "target": agent.provider,
+                "status": "failure",
+                "note": msg,
+            }
+        ]
+        execution_status = "failure"
     except Exception as e:
-        logger.error(f"AI execution failed for run {run_id}: {e}")
+        logger.error(f"Agent execution failed for run {run_id}: {e}")
         response_text = f"Execution error: {str(e)}"
-        if isinstance(e, BrowserAgentExecutionError):
-            action_log = e.action_log
-        else:
-            action_log = [
-                {
-                    "step": 1,
-                    "action": "Execution failed",
-                    "target": agent.provider,
-                    "status": "failure",
-                    "note": str(e),
-                }
-            ]
+        action_log = [
+            {
+                "step": 1,
+                "action": "Execution failed",
+                "target": agent.provider,
+                "status": "failure",
+                "note": str(e),
+            }
+        ]
         execution_status = "failure"
 
     execution_time = execution_time_override or round(time.time() - start_time, 4)

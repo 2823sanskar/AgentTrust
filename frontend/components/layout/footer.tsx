@@ -19,7 +19,7 @@ export function Footer() {
           <div>
             <h4 className="mb-4 text-sm font-semibold text-[#241c15]">Platform</h4>
             <ul className="space-y-2">
-              <li><Link href="/agents" className="text-sm text-[#6b6257] hover:text-[#241c15]">Explore Agents</Link></li>
+              <li><Link href="/execute" className="text-sm text-[#6b6257] hover:text-[#241c15]">Interactive Sandbox</Link></li>
               <li><Link href="/register" className="text-sm text-[#6b6257] hover:text-[#241c15]">Get Started</Link></li>
               <li><Link href="/dashboard" className="text-sm text-[#6b6257] hover:text-[#241c15]">Dashboard</Link></li>
             </ul>

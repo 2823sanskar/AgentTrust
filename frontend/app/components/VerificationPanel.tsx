@@ -13,9 +13,10 @@ import { stellarTransactionUrl } from "@/lib/stellar-network";
 interface ActionLogItem {
   step: number;
   action: string;
-  target: string;
-  status: string;
-  note: string;
+  target?: string;
+  status?: string;
+  note?: string;
+  tool?: string;
 }
 
 interface VerificationPanelProps {

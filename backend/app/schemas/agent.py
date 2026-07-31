@@ -56,7 +56,7 @@ def normalize_env_vars(values: Optional[list[str]]) -> Optional[list[str]]:
 class AgentCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     description: Optional[str] = None
-    provider: str = Field(..., pattern="^(openrouter|browser|external_docker)$")
+    provider: str = Field(..., pattern="^external_docker$")
     model: str = Field(..., min_length=1, max_length=100)
     system_prompt: str = Field(..., min_length=10)
     category: Optional[str] = Field(None, max_length=100)
@@ -77,10 +77,6 @@ class AgentCreate(BaseModel):
             self.agent_type = "custom_docker"
         if self.agent_type == "custom_script" and self.provider != "external_docker":
             raise ValueError("Custom script manifests must use the external Docker execution provider")
-        if self.provider == "openrouter" and self.model != "openrouter/free" and not self.model.endswith(":free"):
-            raise ValueError("Only OpenRouter free models are allowed")
-        if self.provider == "browser" and self.model != "browser-demo":
-            raise ValueError("Browser Agent must use browser-demo")
         if self.provider == "external_docker" and not self.docker_image:
             raise ValueError("Docker image is required for external custom agents")
         if self.agent_type == "custom_docker":
@@ -101,7 +97,7 @@ class AgentCreate(BaseModel):
 class AgentUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=255)
     description: Optional[str] = None
-    provider: Optional[str] = Field(None, pattern="^(openrouter|browser|external_docker)$")
+    provider: Optional[str] = Field(None, pattern="^external_docker$")
     model: Optional[str] = Field(None, min_length=1, max_length=100)
     system_prompt: Optional[str] = Field(None, min_length=10)
     category: Optional[str] = Field(None, max_length=100)

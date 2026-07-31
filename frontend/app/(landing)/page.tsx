@@ -75,10 +75,10 @@ export default function LandingPage() {
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
-                href="/agents"
+                href="/execute"
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-[#241c15] bg-white px-7 py-3 text-base font-semibold text-[#241c15] transition-colors hover:bg-[#ffe01b]"
               >
-                Explore agents
+                Interactive Sandbox
               </Link>
             </div>
           </motion.div>
@@ -130,45 +130,26 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
             {features.map((feature) => (
               <div key={feature.title} className="rounded-[22px] border border-[#d9cfba] bg-white p-6 shadow-sm">
-                <div className="mb-5 inline-flex rounded-[24px] bg-[#ffe01b] p-3 text-[#241c15]">
-                  <feature.icon className="h-6 w-6" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold text-[#241c15]">{feature.title}</h3>
-                <p className="text-sm leading-relaxed text-[#6b6257]">{feature.description}</p>
+                <feature.icon className="mb-4 h-6 w-6 text-[#007c89]" />
+                <h3 className="mb-2 text-lg font-semibold text-[#241c15]">{feature.title}</h3>
+                <p className="text-sm text-[#6b6257]">{feature.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="border-y border-[#dfd5bd] bg-[#fbf7ee] px-4 py-16">
-        <div className="mx-auto grid max-w-7xl gap-5 md:grid-cols-4">
-          {steps.map((item) => (
-            <div key={item.step} className="rounded-[22px] bg-[#f6f1e7] p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <span className="text-4xl font-semibold text-[#d9cfba]">{item.step}</span>
-                <item.icon className="h-6 w-6 text-[#007c89]" />
+      <section className="bg-[#fbf7ee] px-4 py-16">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {steps.map((s) => (
+              <div key={s.step} className="rounded-[22px] border border-[#d9cfba] bg-white p-6">
+                <span className="font-mono text-xs font-bold text-[#007c89]">{s.step}</span>
+                <h4 className="mt-2 text-lg font-semibold text-[#241c15]">{s.title}</h4>
+                <p className="mt-1 text-sm text-[#6b6257]">{s.description}</p>
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-[#241c15]">{item.title}</h3>
-              <p className="text-sm text-[#6b6257]">{item.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="px-4 py-20">
-        <div className="mx-auto max-w-4xl rounded-[28px] border border-[#241c15] bg-[#ffe01b] p-10 text-center shadow-[8px_8px_0_#241c15]">
-          <h2 className="mb-4 text-4xl font-semibold text-[#241c15]">Start verifying agent behavior.</h2>
-          <p className="mx-auto mb-8 max-w-2xl text-[#403b33]">
-            Register an agent, run a sandbox task, and open the proof page with the execution hash and Stellar transaction.
-          </p>
-          <Link
-            href="/register"
-            className="inline-flex items-center gap-2 rounded-full border border-[#241c15] bg-[#241c15] px-8 py-3 font-semibold text-white"
-          >
-            Get Started Free
-            <ArrowRight className="h-5 w-5" />
-          </Link>
+            ))}
+          </div>
         </div>
       </section>
 

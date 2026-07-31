@@ -17,6 +17,7 @@ frontend/.next/
 # Local tooling
 .vscode/
 *.log
+codex_ppt_build/
 
 # AgentTrust Sandbox Worker & Test Environments
 sandbox-worker/.venv/

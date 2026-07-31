@@ -265,7 +265,7 @@ class ApiClient {
   }
 
   // Executions
-  async execute(data: { agent_id: string; task: string; is_interactive?: boolean }) {
+  async execute(data: { agent_id?: string; task: string; is_interactive?: boolean }) {
     // 4-minute timeout: Docker/browser runs can take a while + Stellar anchoring
     return this.request<import("@/types").Run>("/execute", {
       method: "POST",
