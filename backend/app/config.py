@@ -102,7 +102,18 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> List[str]:
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+        raw = (self.CORS_ORIGINS or "").strip()
+        if not raw:
+            return ["*"]
+        if raw.startswith("[") and raw.endswith("]"):
+            import json
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    return [str(o).strip() for o in parsed if o]
+            except Exception:
+                pass
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
     def validate_production(self) -> None:
         if self.ENVIRONMENT.lower() != "production":
