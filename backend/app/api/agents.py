@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api", tags=["Agents"])
 
 
 @router.get("/agents", response_model=AgentListResponse)
+@router.get("/v1/agents", response_model=AgentListResponse)
 async def list_agents(
     search: Optional[str] = Query(None),
     provider: Optional[str] = Query(None),
@@ -31,18 +32,21 @@ async def list_agents(
 
 
 @router.get("/agents/{agent_id}", response_model=AgentResponse)
+@router.get("/v1/agents/{agent_id}", response_model=AgentResponse)
 async def get_agent(agent_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """Get full agent details including trust score."""
     return await agent_service.get_agent(db, agent_id)
 
 
 @router.post("/agents", response_model=AgentResponse, status_code=201)
+@router.post("/agents/register", response_model=AgentResponse, status_code=201)
+@router.post("/v1/agents/register", response_model=AgentResponse, status_code=201)
 async def create_agent(
     data: AgentCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Register a new AI agent. Developer-only."""
+    """Register a new AI agent into the AgentTrust registry."""
     if current_user.role != "developer":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

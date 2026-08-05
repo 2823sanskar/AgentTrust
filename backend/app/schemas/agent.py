@@ -56,10 +56,15 @@ def normalize_env_vars(values: Optional[list[str]]) -> Optional[list[str]]:
 class AgentCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     description: Optional[str] = None
-    provider: str = Field(..., pattern="^external_docker$")
-    model: str = Field(..., min_length=1, max_length=100)
-    system_prompt: str = Field(..., min_length=10)
+    provider: str = Field("external_docker", pattern="^external_docker$")
+    model: str = Field("desktop-environment", min_length=1, max_length=100)
+    system_prompt: str = Field("You are a helpful AI agent executing user tasks.", min_length=10)
     category: Optional[str] = Field(None, max_length=100)
+    author_id: Optional[str] = None
+    install_cmd: Optional[str] = None
+    exec_cmd: Optional[str] = None
+    registration_hash: Optional[str] = None
+    is_public: bool = True
     agent_type: str = Field("prebuilt", pattern="^(prebuilt|custom_docker|custom_script)$")
     docker_image: Optional[str] = Field(None, min_length=1, max_length=255)
     docker_command: Optional[str] = None
@@ -78,10 +83,10 @@ class AgentCreate(BaseModel):
         if self.agent_type == "custom_script" and self.provider != "external_docker":
             raise ValueError("Custom script manifests must use the external Docker execution provider")
         if self.provider == "external_docker" and not self.docker_image:
-            raise ValueError("Docker image is required for external custom agents")
+            self.docker_image = "agenttrust/desktop-environment:latest"
         if self.agent_type == "custom_docker":
             if not self.docker_image:
-                raise ValueError("Docker image is required for external Docker agents")
+                self.docker_image = "agenttrust/desktop-environment:latest"
             if not self.timeout_seconds:
                 self.timeout_seconds = 60
         if self.agent_type == "custom_script":
@@ -101,6 +106,11 @@ class AgentUpdate(BaseModel):
     model: Optional[str] = Field(None, min_length=1, max_length=100)
     system_prompt: Optional[str] = Field(None, min_length=10)
     category: Optional[str] = Field(None, max_length=100)
+    author_id: Optional[str] = None
+    install_cmd: Optional[str] = None
+    exec_cmd: Optional[str] = None
+    registration_hash: Optional[str] = None
+    is_public: Optional[bool] = None
     status: Optional[str] = Field(None, pattern="^(active|inactive)$")
     agent_type: Optional[str] = Field(None, pattern="^(prebuilt|custom_docker|custom_script)$")
     docker_image: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -121,12 +131,17 @@ class AgentUpdate(BaseModel):
 class AgentResponse(BaseModel):
     id: uuid.UUID
     developer_id: uuid.UUID
+    author_id: Optional[str] = None
     name: str
-    description: Optional[str]
+    description: Optional[str] = None
     provider: str
     model: str
     system_prompt: str
-    category: Optional[str]
+    category: Optional[str] = None
+    install_cmd: Optional[str] = None
+    exec_cmd: Optional[str] = None
+    registration_hash: Optional[str] = None
+    is_public: bool = True
     agent_type: str = "prebuilt"
     docker_image: Optional[str] = None
     docker_command: Optional[str] = None

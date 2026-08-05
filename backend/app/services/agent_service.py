@@ -2,6 +2,7 @@
 Agent service: CRUD operations for AI agent management.
 """
 
+import hashlib
 import uuid
 from typing import Optional
 
@@ -15,18 +16,34 @@ from app.models.run import Run
 from app.schemas.agent import AgentCreate, AgentUpdate, AgentResponse, AgentListResponse
 
 
+def generate_agent_hash(name: str, author_id: str, install_cmd: str = "", exec_cmd: str = "") -> str:
+    """Generate deterministic SHA-256 fingerprint for registered agent."""
+    raw_payload = f"{name or ''}:{author_id or ''}:{install_cmd or ''}:{exec_cmd or ''}"
+    return hashlib.sha256(raw_payload.encode('utf-8')).hexdigest()
+
+
 async def create_agent(
     db: AsyncSession, developer_id: uuid.UUID, data: AgentCreate
 ) -> AgentResponse:
+    author = data.author_id or str(developer_id)
+    install = data.install_cmd or ""
+    execution = data.exec_cmd or data.docker_command or data.entrypoint_command or ""
+    reg_hash = data.registration_hash or generate_agent_hash(data.name, author, install, execution)
+
     agent = Agent(
         id=uuid.uuid4(),
         developer_id=developer_id,
+        author_id=author,
         name=data.name,
         description=data.description,
         provider=data.provider,
         model=data.model,
         system_prompt=data.system_prompt,
         category=data.category,
+        install_cmd=install,
+        exec_cmd=execution,
+        registration_hash=reg_hash,
+        is_public=data.is_public,
         agent_type=data.agent_type,
         docker_image=data.docker_image,
         docker_command=data.docker_command,
@@ -153,12 +170,17 @@ def _agent_to_response(agent: Agent) -> AgentResponse:
     return AgentResponse(
         id=agent.id,
         developer_id=agent.developer_id,
+        author_id=getattr(agent, "author_id", None) or str(agent.developer_id),
         name=agent.name,
         description=agent.description,
         provider=agent.provider,
         model=agent.model,
         system_prompt=agent.system_prompt,
         category=agent.category,
+        install_cmd=getattr(agent, "install_cmd", None),
+        exec_cmd=getattr(agent, "exec_cmd", None),
+        registration_hash=getattr(agent, "registration_hash", None),
+        is_public=getattr(agent, "is_public", True),
         agent_type=agent.agent_type,
         docker_image=agent.docker_image,
         docker_command=agent.docker_command,

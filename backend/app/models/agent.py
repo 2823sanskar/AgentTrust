@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Integer, String, Text, DateTime, ForeignKey, func
+from sqlalchemy import JSON, Integer, String, Text, DateTime, Boolean, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,6 +19,7 @@ class Agent(Base):
     developer_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    author_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider: Mapped[str] = mapped_column(String(50), nullable=False)  # external_docker
@@ -28,6 +29,10 @@ class Agent(Base):
     docker_image: Mapped[str | None] = mapped_column(String(255), nullable=True)
     docker_command: Mapped[str | None] = mapped_column(Text, nullable=True)
     entrypoint_command: Mapped[str | None] = mapped_column(Text, nullable=True)
+    install_cmd: Mapped[str | None] = mapped_column(Text, nullable=True)
+    exec_cmd: Mapped[str | None] = mapped_column(Text, nullable=True)
+    registration_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     required_env_vars: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     source_repo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
