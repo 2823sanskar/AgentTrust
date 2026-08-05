@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 import asyncio
 import logging
@@ -9,6 +10,7 @@ from datetime import datetime, timezone
 
 import websockets
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from websockets.exceptions import ConnectionClosed
@@ -205,13 +207,59 @@ async def _get_proxy_run(run_id: uuid.UUID) -> Run | None:
         return result.scalar_one_or_none()
 
 
+@router.get("/logs/{run_id}")
+async def stream_desktop_logs(
+    run_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream live SSE execution logs with reconnection replay buffer."""
+    async def log_generator():
+        header_sent = False
+        for _ in range(60):
+            result = await db.execute(select(Run).where(Run.id == run_id))
+            run = result.scalar_one_or_none()
+            if not run:
+                yield f"data: {json.dumps({'error': 'Run not found'})}\n\n"
+                return
+
+            input_header = f"[INPUT]: {run.task}"
+            if not header_sent:
+                yield f"data: {json.dumps({'type': 'log', 'line': input_header, 'input_header': input_header})}\n\n"
+                header_sent = True
+
+            formatted_logs = [input_header]
+            if run.action_log:
+                for idx, entry in enumerate(run.action_log, start=1):
+                    action = entry.get("action", "Action")
+                    st = entry.get("status", "pending")
+                    formatted_logs.append(f"[STEP {idx}]: {action} ({st})")
+            if run.container_stdout:
+                formatted_logs.append(f"[EXEC]: {run.container_stdout.strip()}")
+
+            event_type = "complete" if run.status in {"success", "completed", "failure", "failed"} else "snapshot"
+            yield f"data: {json.dumps({'type': event_type, 'input_header': input_header, 'formatted_logs': formatted_logs, 'status': run.status})}\n\n"
+            if event_type == "complete":
+                return
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        log_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.websocket("/ws/{run_id}")
 async def desktop_websocket_proxy(
     websocket: WebSocket,
     run_id: uuid.UUID,
     token: str = Query(...),
 ):
-    """Proxy authenticated browser noVNC traffic to localhost-bound websockify."""
+    """Proxy authenticated browser noVNC traffic to localhost or EC2 websockify."""
     subprotocol = _select_websocket_subprotocol(
         websocket.headers.get("sec-websocket-protocol")
     )
@@ -228,7 +276,16 @@ async def desktop_websocket_proxy(
         await websocket.close(code=4004)
         return
 
-    internal_url = f"ws://127.0.0.1:{int(run.websockify_port)}"
+    from app.config import settings
+    target_host = "127.0.0.1"
+    ec2_target = settings.EC2_SANDBOX_URL or settings.SANDBOX_WORKER_URL
+    if ec2_target:
+        from urllib.parse import urlparse
+        parsed = urlparse(ec2_target)
+        if parsed.hostname:
+            target_host = parsed.hostname
+
+    internal_url = f"ws://{target_host}:{int(run.websockify_port)}"
     internal_protocols = [subprotocol] if subprotocol else None
 
     async def browser_to_container(container_ws):
@@ -255,6 +312,17 @@ async def desktop_websocket_proxy(
         except (WebSocketDisconnect, ConnectionClosed, RuntimeError):
             return
 
+    async def heartbeat_loop():
+        try:
+            while True:
+                await asyncio.sleep(15)
+                try:
+                    await websocket.send_json({"type": "ping"})
+                except Exception:
+                    break
+        except asyncio.CancelledError:
+            pass
+
     try:
         async with websockets.connect(
             internal_url,
@@ -264,6 +332,7 @@ async def desktop_websocket_proxy(
             tasks = {
                 asyncio.create_task(browser_to_container(container_ws)),
                 asyncio.create_task(container_to_browser(container_ws)),
+                asyncio.create_task(heartbeat_loop()),
             }
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             for task in pending:
