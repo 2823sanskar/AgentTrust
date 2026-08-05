@@ -22,6 +22,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/execute", label: "Interactive Console" },
+    { href: "/agents", label: "Registry" },
     ...(isAuthenticated
       ? [
           { href: "/dashboard", label: "Dashboard" },

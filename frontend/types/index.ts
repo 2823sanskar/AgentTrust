@@ -19,12 +19,17 @@ export interface TokenResponse {
 export interface Agent {
   id: string;
   developer_id: string;
+  author_id?: string | null;
   name: string;
   description: string | null;
   provider: "openrouter" | "browser" | "external_docker";
   model: string;
   system_prompt: string;
   category: string | null;
+  install_cmd?: string | null;
+  exec_cmd?: string | null;
+  registration_hash?: string | null;
+  is_public?: boolean;
   agent_type: "prebuilt" | "custom_docker" | "custom_script";
   docker_image: string | null;
   docker_command: string | null;
@@ -57,13 +62,18 @@ export interface RunListResponse {
 export interface AgentCreate {
   name: string;
   description?: string;
-  provider: "openrouter" | "browser" | "external_docker";
-  model: string;
-  system_prompt: string;
+  provider?: "openrouter" | "browser" | "external_docker";
+  model?: string;
+  system_prompt?: string;
   agent_type?: "prebuilt" | "custom_docker" | "custom_script";
   docker_image?: string;
   docker_command?: string;
   entrypoint_command?: string;
+  author_id?: string;
+  install_cmd?: string;
+  exec_cmd?: string;
+  registration_hash?: string;
+  is_public?: boolean;
   required_env_vars?: string[];
   source_repo_url?: string;
   timeout_seconds?: number;
