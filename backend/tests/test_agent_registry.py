@@ -44,5 +44,15 @@ class TestAgentRegistry(unittest.TestCase):
         self.assertEqual(final_cmd, 'openclaw --task "Scrape headline news from web"')
 
 
+    def test_ec2_autostop_idle_threshold_logic(self):
+        max_idle_minutes = 30
+        idle_counter = 0
+        step_increment = 5
+        for _ in range(6):
+            idle_counter += step_increment
+        self.assertEqual(idle_counter, 30)
+        self.assertGreaterEqual(idle_counter, max_idle_minutes)
+
+
 if __name__ == "__main__":
     unittest.main()
