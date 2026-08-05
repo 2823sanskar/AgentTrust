@@ -125,6 +125,25 @@ RUN printf '%s\n' \
         '  <property name="general" type="empty">' \
         '    <property name="LockCommand" type="string" value=""/>' \
         '    <property name="SaveOnExit" type="bool" value="false"/>' \
+
+RUN printf '%s\n' \
+        '<?xml version="1.0" encoding="UTF-8"?>' \
+        '<channel name="xfce4-power-manager" version="1.0">' \
+        '  <property name="xfce4-power-manager" type="empty">' \
+        '    <property name="dpms-enabled" type="bool" value="false"/>' \
+        '    <property name="blank-on-ac" type="int" value="0"/>' \
+        '    <property name="blank-on-battery" type="int" value="0"/>' \
+        '    <property name="sleep-display-ac" type="int" value="0"/>' \
+        '    <property name="sleep-display-battery" type="int" value="0"/>' \
+        '  </property>' \
+        '</channel>' \
+        > /home/agentuser/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-power-manager.xml \
+    && printf '%s\n' \
+        '<?xml version="1.0" encoding="UTF-8"?>' \
+        '<channel name="xfce4-session" version="1.0">' \
+        '  <property name="general" type="empty">' \
+        '    <property name="LockCommand" type="string" value=""/>' \
+        '    <property name="SaveOnExit" type="bool" value="false"/>' \
         '  </property>' \
         '</channel>' \
         > /home/agentuser/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml
@@ -133,6 +152,10 @@ RUN chown -R agentuser:agentuser /home/agentuser/.config
 
 COPY entrypoint.sh /usr/local/bin/agenttrust-desktop-entrypoint.sh
 RUN chmod +x /usr/local/bin/agenttrust-desktop-entrypoint.sh
+
+RUN mkdir -p /agenttrust
+COPY bootstrap.sh /agenttrust/bootstrap.sh
+RUN chmod +x /agenttrust/bootstrap.sh
 
 WORKDIR /home/agentuser/workspace
 

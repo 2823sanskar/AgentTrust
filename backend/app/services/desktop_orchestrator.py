@@ -73,6 +73,8 @@ def _spawn_desktop_container_sync(
     vnc_port: int,
     websockify_port: int,
     task: str = "",
+    install_cmd: str = "",
+    exec_cmd: str = "",
 ) -> dict[str, Any]:
     config = get_desktop_container_config()
     client = _docker_client()
@@ -118,6 +120,11 @@ def _spawn_desktop_container_sync(
                 "created_at": started_at.isoformat(),
                 "run_id": str(run_id),
             })
+            agent_config_data = json.dumps({
+                "install_cmd": install_cmd or "",
+                "exec_cmd": exec_cmd or "",
+                "task": task or "",
+            })
             action_log_data = json.dumps({
                 "run_id": str(run_id),
                 "status": "INITIALIZED",
@@ -125,11 +132,16 @@ def _spawn_desktop_container_sync(
             })
 
             input_b64 = base64.b64encode(input_data.encode("utf-8")).decode("ascii")
+            agent_config_b64 = base64.b64encode(agent_config_data.encode("utf-8")).decode("ascii")
             action_log_b64 = base64.b64encode(action_log_data.encode("utf-8")).decode("ascii")
 
             container.exec_run("mkdir -p /agenttrust")
             container.exec_run(f"sh -c 'echo {input_b64} | base64 -d > /agenttrust/input.json'")
+            container.exec_run(f"sh -c 'echo {agent_config_b64} | base64 -d > /agenttrust/agent_config.json'")
             container.exec_run(f"sh -c 'echo {action_log_b64} | base64 -d > /agenttrust/action_log.json'")
+
+            # Execute auto-installer bootstrap script if present
+            container.exec_run("bash -c 'if [ -f /agenttrust/bootstrap.sh ]; then /agenttrust/bootstrap.sh > /agenttrust/bootstrap.log 2>&1 & fi'")
         except Exception as workspace_exc:
             logger.warning("Failed to initialize /agenttrust workspace files in container %s: %s", container_name, workspace_exc)
 
@@ -177,6 +189,8 @@ async def spawn_desktop_container(
     vnc_port: int,
     websockify_port: int,
     task: str = "",
+    install_cmd: str = "",
+    exec_cmd: str = "",
 ) -> dict[str, Any]:
     """Spawn an interactive desktop container and return Docker metadata."""
     if not await is_ec2_sandbox_online(timeout_seconds=3.0):
@@ -190,6 +204,8 @@ async def spawn_desktop_container(
         vnc_port,
         websockify_port,
         task,
+        install_cmd,
+        exec_cmd,
     )
 
 

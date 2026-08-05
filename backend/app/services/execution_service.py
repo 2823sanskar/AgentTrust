@@ -384,6 +384,8 @@ async def _start_interactive_desktop_run(
             selected_vnc_port,
             selected_websockify_port,
             task=task,
+            install_cmd=getattr(agent, "install_cmd", "") or "",
+            exec_cmd=getattr(agent, "exec_cmd", "") or "",
         )
         container_id = str(metadata["container_id"])
         await wait_for_desktop_readiness(container_id)

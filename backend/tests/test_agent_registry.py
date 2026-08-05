@@ -37,5 +37,12 @@ class TestAgentRegistry(unittest.TestCase):
         self.assertTrue(agent_in.is_public)
 
 
+    def test_bootstrap_command_template_replacement(self):
+        exec_template = 'openclaw --task "{task}"'
+        task_prompt = "Scrape headline news from web"
+        final_cmd = exec_template.replace("{task}", task_prompt)
+        self.assertEqual(final_cmd, 'openclaw --task "Scrape headline news from web"')
+
+
 if __name__ == "__main__":
     unittest.main()
