@@ -146,6 +146,31 @@ def _spawn_desktop_container_sync(
     }
 
 
+async def is_ec2_sandbox_online(timeout_seconds: float = 3.0) -> bool:
+    """
+    Check if the remote EC2 sandbox worker / Docker daemon is reachable.
+    Uses a strict <=3s timeout to prevent Vercel serverless function invocation timeout caps.
+    """
+    from app.config import settings
+    ec2_url = settings.EC2_SANDBOX_URL or settings.SANDBOX_WORKER_URL or ""
+    if not ec2_url:
+        try:
+            client = _docker_client()
+            return client is not None
+        except Exception:
+            return False
+
+    endpoint = f"{ec2_url.rstrip('/')}/health"
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            resp = await client.get(endpoint)
+            return resp.status_code == 200
+    except Exception as exc:
+        logger.warning("EC2 sandbox health check failed at %s: %s", endpoint, exc)
+        return False
+
+
 async def spawn_desktop_container(
     run_id: str,
     vnc_password: str,
@@ -154,6 +179,10 @@ async def spawn_desktop_container(
     task: str = "",
 ) -> dict[str, Any]:
     """Spawn an interactive desktop container and return Docker metadata."""
+    if not await is_ec2_sandbox_online(timeout_seconds=3.0):
+        raise DesktopOrchestrationError(
+            "Desktop Sandbox Node is currently offline. Please boot the EC2 instance to execute remote desktop tasks."
+        )
     return await asyncio.to_thread(
         _spawn_desktop_container_sync,
         run_id,

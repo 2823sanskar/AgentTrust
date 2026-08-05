@@ -36,8 +36,9 @@ class Settings(BaseSettings):
     STELLAR_HORIZON_URL: str = STELLAR_MAINNET_HORIZON_URL
     STELLAR_MAX_BASE_FEE: int = 10_000
 
-    # Decoupled Sandbox Worker
+    # Decoupled Sandbox Worker & EC2 Remote Desktop Node
     SANDBOX_WORKER_URL: Optional[str] = "http://localhost:8001"
+    EC2_SANDBOX_URL: Optional[str] = None
 
     # App
     APP_NAME: str = "AgentTrust"

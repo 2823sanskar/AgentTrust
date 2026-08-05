@@ -9,7 +9,7 @@ import { Footer } from "@/components/layout/footer";
 import { LiveSandboxConsole } from "@/components/execution/LiveSandboxConsole";
 import { motion } from "framer-motion";
 import {
-  Send, Bot, Loader2, Monitor
+  Send, Bot, Loader2, Monitor, AlertTriangle
 } from "lucide-react";
 
 function ExecuteContent() {
@@ -147,8 +147,18 @@ function ExecuteContent() {
             </button>
           </div>
           {error && (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-              {error}
+            <div className={`mt-4 rounded-xl border p-4 text-xs font-mono transition-all ${
+              error.toLowerCase().includes("offline") || error.toLowerCase().includes("503") || error.toLowerCase().includes("boot")
+                ? "border-amber-400/50 bg-amber-50 text-amber-900 shadow-sm"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}>
+              <div className="font-bold flex items-center gap-2 text-sm mb-1">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                {error.toLowerCase().includes("offline") || error.toLowerCase().includes("503")
+                  ? "Desktop Sandbox Offline"
+                  : "Execution Failed"}
+              </div>
+              <p className="leading-relaxed">{error}</p>
             </div>
           )}
         </div>
